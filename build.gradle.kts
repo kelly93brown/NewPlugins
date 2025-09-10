@@ -1,4 +1,4 @@
-// v19: The final, logical fix. Re-adding the essential AndroidX libraries that the provider code needs.
+// v20: The complete and correct configuration. No more missing pieces.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -9,7 +9,6 @@ buildscript {
         mavenCentral()
         maven("https://jitpack.io")
     }
-
     dependencies {
         classpath("com.android.tools.build:gradle:8.3.2")
         classpath("com.github.recloudstream:gradle:-SNAPSHOT")
@@ -54,6 +53,11 @@ subprojects {
             targetCompatibility = JavaVersion.VERSION_1_8
         }
 
+        // Feature needed to generate BuildConfig.java
+        buildFeatures {
+            buildConfig = true
+        }
+
         tasks.withType(KotlinCompile::class.java).configureEach {
             kotlinOptions {
                 jvmTarget = "1.8"
@@ -70,10 +74,11 @@ subprojects {
         implementation("org.jsoup:jsoup:1.17.2")
         implementation("com.github.Blatzar:NiceHttp:0.4.11")
 
-        // THIS IS THE FIX: Adding the fundamental Android libraries back.
-        // These are required for basic Android components like AppCompatActivity.
+        // The essential Android libraries that were missing
         implementation("androidx.core:core-ktx:1.13.1")
         implementation("androidx.appcompat:appcompat:1.6.1")
+        // The library for BottomSheetDialogFragment and other UI components
+        implementation("com.google.android.material:material:1.12.0")
     }
 }
 
