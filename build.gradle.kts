@@ -1,4 +1,4 @@
-// v16: The final technical fix. Aligning the Java and Kotlin compiler targets.
+// v18: The final puzzle piece. Upgrading the Kotlin compiler to match the core library.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -13,7 +13,8 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle:8.3.2")
         classpath("com.github.recloudstream:gradle:-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22")
+        // THIS IS THE FIX: Upgrading Kotlin to a compatible version
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     }
 }
 
@@ -54,7 +55,6 @@ subprojects {
             targetCompatibility = JavaVersion.VERSION_1_8
         }
 
-        // THIS IS THE FIX: This block tells Kotlin to target Java 1.8 (JVM 8)
         tasks.withType(KotlinCompile::class.java).configureEach {
             kotlinOptions {
                 jvmTarget = "1.8"
