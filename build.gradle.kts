@@ -1,4 +1,4 @@
-// v18: The final puzzle piece. Upgrading the Kotlin compiler to match the core library.
+// v19: The final, logical fix. Re-adding the essential AndroidX libraries that the provider code needs.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -13,7 +13,6 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle:8.3.2")
         classpath("com.github.recloudstream:gradle:-SNAPSHOT")
-        // THIS IS THE FIX: Upgrading Kotlin to a compatible version
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     }
 }
@@ -70,6 +69,11 @@ subprojects {
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.17.2")
         implementation("com.github.Blatzar:NiceHttp:0.4.11")
+
+        // THIS IS THE FIX: Adding the fundamental Android libraries back.
+        // These are required for basic Android components like AppCompatActivity.
+        implementation("androidx.core:core-ktx:1.13.1")
+        implementation("androidx.appcompat:appcompat:1.6.1")
     }
 }
 
