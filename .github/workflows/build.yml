@@ -1,54 +1,63 @@
-# v4: Updated build paths to reflect the new 'plugins' directory structure.
-
-name: build
+# v23: The final victory. The build is successful, this just corrects the path to find the final plugin file.
+name: Build
 
 on:
   push:
+    branches:
+      - master
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Checkout builds
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: builds
           path: builds
 
       - name: Clean old builds
-        run: rm -f $GITHUB_WORKSPACE/builds/*.cs3
+        run: rm -f builds/*.cs3
 
       - name: Sanitize builds checkout
         run: |
-          if [ -f "builds/build.gradle.kts" ]; then
+          if [[ -f "builds/build.gradle.kts" ]]; then
             mv builds/build.gradle.kts builds/build.gradle.kts.bak
           fi
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: 17
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
+        uses: android-actions/setup-android@v3
 
       - name: Build Plugins
         run: |
-          # [FIXED v4] Corrected paths for the new project structure.
-          ./gradlew :plugins:ExampleProvider:assembleRelease
-          mv plugins/ExampleProvider/build/outputs/apk/release/*.cs3 builds/
+          chmod +x ./gradlew
+          ./gradlew :plugins:ExampleProvider:assembleRelease --stacktrace
 
       - name: Push builds
         run: |
           cd builds
-          git config --global user.name "adamwolker21"
-          git config --global user.email "adamwolker21@users.noreply.github.com"
-          rm -f build.gradle.kts.bak
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f --ignore-unmatch *.cs3
+          # THE FIX IS HERE: Find the .cs3 file wherever it is and move it here.
+          find ../plugins/ExampleProvider/build -type f -name "*.cs3" -exec mv {} . \;
+          # Verify that the file was moved
+          ls -l
+          if [[ -z $(git status -s) ]]; then
+            echo "No changes to commit"
+            exit 0
+          fi
           git add .
-          git commit -m "Update builds" || exit 0
+          git commit -m "Update plugins"
           git push
