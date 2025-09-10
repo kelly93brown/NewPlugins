@@ -1,6 +1,7 @@
-// v15: The definitive fix. Correcting the critical syntax error.
+// v16: The final technical fix. Aligning the Java and Kotlin compiler targets.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
     repositories {
@@ -41,7 +42,6 @@ subprojects {
 
     android {
         namespace = "com.adamwolker21.${project.name}"
-        // THIS IS THE FIX: The correct name is compileSdkVersion
         compileSdkVersion(34)
 
         defaultConfig {
@@ -52,6 +52,13 @@ subprojects {
         compileOptions {
             sourceCompatibility = JavaVersion.VERSION_1_8
             targetCompatibility = JavaVersion.VERSION_1_8
+        }
+
+        // THIS IS THE FIX: This block tells Kotlin to target Java 1.8 (JVM 8)
+        tasks.withType(KotlinCompile::class.java).configureEach {
+            kotlinOptions {
+                jvmTarget = "1.8"
+            }
         }
     }
 
