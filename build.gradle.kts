@@ -1,4 +1,4 @@
-// v14: Replicating the exact, working buildscript structure from successful projects.
+// v15: The definitive fix. Correcting the critical syntax error.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 
@@ -10,10 +10,9 @@ buildscript {
     }
 
     dependencies {
-        // Using the same dependency versions as the reference projects
-        classpath("com.android.tools.build:gradle:8.1.3")
+        classpath("com.android.tools.build:gradle:8.3.2")
         classpath("com.github.recloudstream:gradle:-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22")
     }
 }
 
@@ -42,7 +41,8 @@ subprojects {
 
     android {
         namespace = "com.adamwolker21.${project.name}"
-        compileSdk = 34
+        // THIS IS THE FIX: The correct name is compileSdkVersion
+        compileSdkVersion(34)
 
         defaultConfig {
             minSdk = 24
