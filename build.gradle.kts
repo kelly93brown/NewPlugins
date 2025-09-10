@@ -1,19 +1,16 @@
-// v6: Providing the custom CloudStream plugin to all sub-projects.
-// This is the final key to connecting your project with the CloudStream build system.
+// v7: Pointing to the correct upstream dependency for recloudstream forks.
+// This ensures compatibility and resolves the 401 Unauthorized error.
 
-// This 'buildscript' block is executed first. It tells Gradle where to find
-// the custom plugin code needed to build the providers.
 buildscript {
     repositories {
         google()
         mavenCentral()
-        // The CloudStream plugin is hosted on JitPack
         maven { url = uri("https://jitpack.io") }
     }
     dependencies {
-        // This is the classpath to the custom plugin itself.
-        // It makes the "com.lagradost.cloudstream3.plugin" ID available.
-        classpath("com.github.LagradOst:CloudStream-3:master-SNAPSHOT")
+        // [FIXED v7] Using the recloudstream repository instead of the original LagradOst.
+        // This is the standard for projects based on this fork.
+        classpath("com.github.recloudstream:cloudstream:master-SNAPSHOT")
     }
 }
 
