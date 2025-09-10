@@ -1,23 +1,45 @@
-// v13: A clean and streamlined build file.
-// All repository and buildscript definitions have been moved to settings.gradle.kts.
+// v14: Replicating the exact, working buildscript structure from successful projects.
+import com.android.build.gradle.BaseExtension
+import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 
-// We only need to define the plugins now, without the version numbers,
-// as they are managed in settings.gradle.kts.
-plugins {
-    id("com.android.application") apply false
-    id("com.android.library") apply false
-    kotlin("android") apply false
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
+    }
+
+    dependencies {
+        // Using the same dependency versions as the reference projects
+        classpath("com.android.tools.build:gradle:8.1.3")
+        classpath("com.github.recloudstream:gradle:-SNAPSHOT")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
+    }
 }
 
-// The rest of the file configures the subprojects, which is its correct responsibility.
-// This code is clean and correct.
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
+    }
+}
+
+fun Project.cloudstream(configuration: CloudstreamExtension.() -> Unit) =
+    extensions.getByName<CloudstreamExtension>("cloudstream").configuration()
+
+fun Project.android(configuration: BaseExtension.() -> Unit) =
+    extensions.getByName<BaseExtension>("android").configuration()
+
 subprojects {
     apply(plugin = "com.android.library")
-    apply(plugin = "org.jetbrains.kotlin.android")
-    // Note: The custom plugin ID will be resolved correctly now because of the setup in settings.gradle.kts
+    apply(plugin = "kotlin-android")
     apply(plugin = "com.lagradost.cloudstream3.gradle")
 
-    // The rest of the configuration remains the same
+    cloudstream {
+        setRepo(System.getenv("GITHUB_REPOSITORY") ?: "https://github.com/adamwolker21/TestPlugins")
+    }
+
     android {
         namespace = "com.adamwolker21.${project.name}"
         compileSdk = 34
@@ -26,7 +48,7 @@ subprojects {
             minSdk = 24
             targetSdk = 34
         }
-        
+
         compileOptions {
             sourceCompatibility = JavaVersion.VERSION_1_8
             targetCompatibility = JavaVersion.VERSION_1_8
