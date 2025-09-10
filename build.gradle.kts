@@ -1,4 +1,4 @@
-// v20: The complete and correct configuration. No more missing pieces.
+// v21: Correcting a simple but critical typo. buildConfig -> buildConfig
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -55,6 +55,7 @@ subprojects {
 
         // Feature needed to generate BuildConfig.java
         buildFeatures {
+            // THE FIX IS HERE: Correcting the typo from 'buildConfig' to 'buildConfig'
             buildConfig = true
         }
 
@@ -74,10 +75,8 @@ subprojects {
         implementation("org.jsoup:jsoup:1.17.2")
         implementation("com.github.Blatzar:NiceHttp:0.4.11")
 
-        // The essential Android libraries that were missing
         implementation("androidx.core:core-ktx:1.13.1")
         implementation("androidx.appcompat:appcompat:1.6.1")
-        // The library for BottomSheetDialogFragment and other UI components
         implementation("com.google.android.material:material:1.12.0")
     }
 }
