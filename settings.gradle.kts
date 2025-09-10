@@ -1,19 +1,23 @@
-rootProject.name = "CloudstreamPlugins"
+// v3: Register all your plugin modules here.
+// This tells Gradle that "ExampleProvider" is a sub-project it needs to manage.
 
-// This file sets what projects are included.
-// All new projects should get automatically included unless specified in the "disabled" variable.
-
-val disabled = listOf<String>()
-
-File(rootDir, ".").eachDir { dir ->
-    if (!disabled.contains(dir.name) && File(dir, "build.gradle.kts").exists()) {
-        include(dir.name)
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
     }
 }
-
-fun File.eachDir(block: (File) -> Unit) {
-    listFiles()?.filter { it.isDirectory }?.forEach { block(it) }
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
 }
+rootProject.name = "CloudstreamPlugins"
 
-// To only include a single project, comment out the previous lines (except the first one), and include your plugin like so:
-// include("PluginName")
+// Include your plugins here
+include(":ExampleProvider")
+// To add a new plugin, create its folder and add a line like this:
+// include(":MyNewArabicPlugin")
