@@ -1,3 +1,6 @@
+# v2: Sanitize the 'builds' checkout to prevent Gradle configuration conflicts.
+# The error "Cannot add task 'clean'" is caused by a conflicting build.gradle.kts
+# in the 'builds' branch. This step renames it to avoid the issue.
 
 name: build
 
@@ -21,9 +24,16 @@ jobs:
           ref: builds
           path: builds
 
-      # [FIXED v1] The -f flag is added to prevent an error if no files are found
       - name: Clean old builds
         run: rm -f $GITHUB_WORKSPACE/builds/*.cs3
+
+      # [NEW in v2] Rename conflicting gradle file from the 'builds' branch checkout
+      # to prevent it from interfering with the main build process.
+      - name: Sanitize builds checkout
+        run: |
+          if [ -f "builds/build.gradle.kts" ]; then
+            mv builds/build.gradle.kts builds/build.gradle.kts.bak
+          fi
 
       - name: Setup JDK 17
         uses: actions/setup-java@v2
@@ -45,6 +55,9 @@ jobs:
           cd builds
           git config --global user.name "adamwolker21"
           git config --global user.email "adamwolker21@users.noreply.github.com"
+          # [MODIFIED in v2] We remove the renamed build file before committing
+          # so it doesn't get added to the builds branch.
+          rm -f build.gradle.kts.bak
           git add .
           git commit -m "Update builds" || exit 0
           git push
