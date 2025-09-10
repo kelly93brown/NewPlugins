@@ -1,5 +1,5 @@
-// v7: Pointing to the correct upstream dependency for recloudstream forks.
-// This ensures compatibility and resolves the 401 Unauthorized error.
+// v8: Using a fixed, stable commit hash instead of a volatile SNAPSHOT.
+// This is the most robust solution and standard practice for stable builds.
 
 buildscript {
     repositories {
@@ -8,9 +8,10 @@ buildscript {
         maven { url = uri("https://jitpack.io") }
     }
     dependencies {
-        // [FIXED v7] Using the recloudstream repository instead of the original LagradOst.
-        // This is the standard for projects based on this fork.
-        classpath("com.github.recloudstream:cloudstream:master-SNAPSHOT")
+        // [FIXED v8] Replaced "master-SNAPSHOT" with a specific commit hash.
+        // This guarantees that we always download the same stable build tools,
+        // completely avoiding the JitPack build timeout/failure issue.
+        classpath("com.github.recloudstream:cloudstream:6e5e0b0")
     }
 }
 
