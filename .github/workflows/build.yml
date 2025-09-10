@@ -1,6 +1,6 @@
-# v2: Sanitize the 'builds' checkout to prevent Gradle configuration conflicts.
-# The error "Cannot add task 'clean'" is caused by a conflicting build.gradle.kts
-# in the 'builds' branch. This step renames it to avoid the issue.
+# v3: Correct the Gradle build path and the 'mv' command path.
+# The project structure is now properly defined in Gradle settings,
+# so we can call the build task with the correct module path.
 
 name: build
 
@@ -27,8 +27,6 @@ jobs:
       - name: Clean old builds
         run: rm -f $GITHUB_WORKSPACE/builds/*.cs3
 
-      # [NEW in v2] Rename conflicting gradle file from the 'builds' branch checkout
-      # to prevent it from interfering with the main build process.
       - name: Sanitize builds checkout
         run: |
           if [ -f "builds/build.gradle.kts" ]; then
@@ -46,17 +44,18 @@ jobs:
 
       - name: Build Plugins
         run: |
-          ./gradlew :plugins:ExampleProvider:assembleRelease
-          # ./gradlew :plugins:ArabicProvider:assembleRelease # Example
-          mv plugins/ExampleProvider/build/outputs/apk/release/*.cs3 builds/
+          # [FIXED v3] Corrected the Gradle task path.
+          # It should point directly to the module name defined in settings.gradle.kts.
+          ./gradlew :ExampleProvider:assembleRelease
+          
+          # [FIXED v3] Corrected the path for the 'mv' command to find the built .cs3 file.
+          mv ExampleProvider/build/outputs/apk/release/*.cs3 builds/
 
       - name: Push builds
         run: |
           cd builds
           git config --global user.name "adamwolker21"
           git config --global user.email "adamwolker21@users.noreply.github.com"
-          # [MODIFIED in v2] We remove the renamed build file before committing
-          # so it doesn't get added to the builds branch.
           rm -f build.gradle.kts.bak
           git add .
           git commit -m "Update builds" || exit 0
