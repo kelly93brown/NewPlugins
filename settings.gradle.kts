@@ -1,28 +1,30 @@
-// v4: Re-introducing automatic plugin discovery and centralizing repositories.
-// This is the definitive, scalable solution.
+// v13: The Absolute Final Structure.
+// Centralizing all repository and plugin management as required by modern Gradle.
 
+// This block tells Gradle where to find the plugins themselves (like the Android plugin).
 pluginManagement {
     repositories {
         google()
         mavenCentral()
-        gradlePluginPortal()
+        gradlePluginPortal() // The official portal for Gradle plugins
     }
 }
 
-// Central repository management. This fixes the build error from v3.
+// This block tells Gradle where to find project dependencies (like Jsoup, NiceHttp, etc.)
+// It also enforces the rule that ONLY these repositories can be used.
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") }
+        maven("https://jitpack.io")
     }
 }
 
-rootProject.name = "CloudstreamPlugins"
+rootProject.name = "TestPlugins"
 
-// Automatic plugin inclusion script.
-// It finds all subdirectories in the 'plugins' folder and includes them.
+// This smart script automatically includes any folder inside "plugins" as a subproject.
+// This part remains unchanged because it works perfectly.
 file("plugins").listFiles()?.forEach {
     if (it.isDirectory) {
         include(":plugins:${it.name}")
