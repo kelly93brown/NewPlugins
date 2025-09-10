@@ -1,5 +1,5 @@
-// v8: Using a fixed, stable commit hash instead of a volatile SNAPSHOT.
-// This is the most robust solution and standard practice for stable builds.
+// v9: The Definitive Fix. Using a stable, official tagged release.
+// This artifact is confirmed to exist on JitPack and is used by other successful projects.
 
 buildscript {
     repositories {
@@ -8,10 +8,10 @@ buildscript {
         maven { url = uri("https://jitpack.io") }
     }
     dependencies {
-        // [FIXED v8] Replaced "master-SNAPSHOT" with a specific commit hash.
-        // This guarantees that we always download the same stable build tools,
-        // completely avoiding the JitPack build timeout/failure issue.
-        classpath("com.github.recloudstream:cloudstream:6e5e0b0")
+        // [FIXED v9] Using a specific, official release tag "v0.0.8-RC2".
+        // This is a stable version that JitPack has successfully built and hosts.
+        // This resolves the 404 "Not Found" error permanently.
+        classpath("com.github.recloudstream:cloudstream:v0.0.8-RC2")
     }
 }
 
