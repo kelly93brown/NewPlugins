@@ -1,6 +1,4 @@
-# v3: Correct the Gradle build path and the 'mv' command path.
-# The project structure is now properly defined in Gradle settings,
-# so we can call the build task with the correct module path.
+# v4: Updated build paths to reflect the new 'plugins' directory structure.
 
 name: build
 
@@ -12,9 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up job
-        run: echo "Starting"
-
       - name: Checkout
         uses: actions/checkout@v2
 
@@ -44,12 +39,9 @@ jobs:
 
       - name: Build Plugins
         run: |
-          # [FIXED v3] Corrected the Gradle task path.
-          # It should point directly to the module name defined in settings.gradle.kts.
-          ./gradlew :ExampleProvider:assembleRelease
-          
-          # [FIXED v3] Corrected the path for the 'mv' command to find the built .cs3 file.
-          mv ExampleProvider/build/outputs/apk/release/*.cs3 builds/
+          # [FIXED v4] Corrected paths for the new project structure.
+          ./gradlew :plugins:ExampleProvider:assembleRelease
+          mv plugins/ExampleProvider/build/outputs/apk/release/*.cs3 builds/
 
       - name: Push builds
         run: |
@@ -60,11 +52,3 @@ jobs:
           git add .
           git commit -m "Update builds" || exit 0
           git push
-      - name: Post Checkout builds
-        run: echo "idk"
-
-      - name: Post Checkout
-        run: echo "idk"
-
-      - name: Complete job
-        run: echo "Done"
