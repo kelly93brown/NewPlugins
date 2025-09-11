@@ -1,5 +1,4 @@
-// v11: The ROOT CAUSE FIX based on your analysis.
-// Updating build tools (classpath) to modern, compatible versions.
+// v12: The final version based on your correct analysis and official compatibility rules.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -11,9 +10,11 @@ buildscript {
         maven("https://jitpack.io")
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.7.3")
+        // v12 FIX: Using officially compatible versions as per your research.
+        // This combination is known to work together.
+        classpath("com.android.tools.build:gradle:8.5.0")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0") // Per official Android Gradle Plugin 8.5.0 compatibility
     }
 }
 
@@ -48,18 +49,16 @@ subprojects {
 
         defaultConfig {
             minSdk = 24
-            // targetSdk is automatically set by the CloudStream plugin
         }
 
         compileOptions {
             sourceCompatibility = JavaVersion.VERSION_1_8
             targetCompatibility = JavaVersion.VERSION_1_8
         }
-
-        tasks.withType(KotlinCompile::class.java).configureEach {
-            kotlinOptions {
-                jvmTarget = "1.8"
-            }
+        
+        // v12 FIX: Using the modern compilerOptions DSL to fix the deprecation warning.
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
         }
     }
 
@@ -70,15 +69,14 @@ subprojects {
         cloudstream("com.lagradost:cloudstream3:pre-release")
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.17.2")
-        // NiceHttp is often included in the base plugin, but can be added if needed
-        // implementation("com.github.Blatzar:NiceHttp:0.4.11") 
-
+        
         implementation("androidx.core:core-ktx:1.13.1")
         implementation("androidx.appcompat:appcompat:1.6.1")
         implementation("com.google.android.material:material:1.12.0")
     }
 }
 
+// v12 FIX: Using the modern way to get the build directory to fix the deprecation warning.
 tasks.register<Delete>("clean") {
-    delete(rootProject.buildDir)
+    delete(rootProject.layout.buildDirectory)
 }
