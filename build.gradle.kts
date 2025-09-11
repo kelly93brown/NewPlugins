@@ -12,7 +12,7 @@ buildscript {
     }
     dependencies {
         // UPDATED to match working projects
-        classpath("com.android.tools.build:gradle:8.13") // Or a more recent stable version
+        classpath("com.android.tools.build:gradle:8.12") // Or a more recent stable version
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20") // Stable version compatible with AGP
     }
