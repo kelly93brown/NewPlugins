@@ -23,7 +23,7 @@ class Asia2Tv : MainAPI() {
 
         if (page > 1) {
             val items = document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
-            return newHomePageResponse(request.name, items)
+            return newHomePageResponse(items, request.name, true)
         }
         
         document.select("div.Blocks").forEach { section ->
@@ -31,7 +31,7 @@ class Asia2Tv : MainAPI() {
             val categoryUrl = section.selectFirst("div.title-bar a.more")?.attr("href") ?: return@forEach
             val items = section.select("div.item").mapNotNull { it.toSearchResponse() }
             if (items.isNotEmpty()) {
-                allhome.add(HomePageList(title, items, fixUrl(categoryUrl)))
+                allhome.add(HomePageList(items, title, fixUrl(categoryUrl)))
             }
         }
         return HomePageResponse(allhome, true)
