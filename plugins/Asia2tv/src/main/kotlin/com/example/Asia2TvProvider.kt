@@ -4,7 +4,6 @@ package com.example
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.cloudstream3.utils.AppUtils
 import org.jsoup.nodes.Element
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -24,7 +23,7 @@ class Asia2Tv : MainAPI() {
 
         if (page > 1) {
             val items = document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
-            return newHomePageResponse(request.name, items, true)
+            return newHomePageResponse(request.name, items)
         }
         
         document.select("div.Blocks").forEach { section ->
@@ -32,10 +31,10 @@ class Asia2Tv : MainAPI() {
             val categoryUrl = section.selectFirst("div.title-bar a.more")?.attr("href") ?: return@forEach
             val items = section.select("div.item").mapNotNull { it.toSearchResponse() }
             if (items.isNotEmpty()) {
-                allhome.add(HomePageList(title, items, url = fixUrl(categoryUrl)))
+                allhome.add(HomePageList(title, items, fixUrl(categoryUrl)))
             }
         }
-        return HomePageResponse(allhome, hasNext = true)
+        return HomePageResponse(allhome, true)
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
