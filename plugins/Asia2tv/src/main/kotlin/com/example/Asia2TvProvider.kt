@@ -1,11 +1,13 @@
 package com.example
 
+// These are the missing imports. This is the only change.
+import com.lagradost.cloudstream3.LoadResponse.Companion.newMovieLoadResponse
+import com.lagradost.cloudstream3.LoadResponse.Companion.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
-import com.lagradost.cloudstream3.LoadResponse.Companion.newMovieLoadResponse
-import com.lagradost.cloudstream3.LoadResponse.Companion.newTvSeriesLoadResponse
+
 
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
