@@ -41,26 +41,15 @@ class Asia2Tv : MainAPI() {
         val posterUrl = posterDiv.selectFirst("img")?.attr("data-src") ?: posterDiv.selectFirst("img")?.attr("src")
 
         return if (href.contains("/movie/")) {
-            // استخدام الطريقة الجديدة والمباشرة
-            MovieSearchResponse(
-                title,
-                href,
-                this@Asia2Tv.name,
-                TvType.Movie,
-                posterUrl,
-                null,
-            )
+            // استخدام دالة المساعدة الحديثة
+            newMovieSearchResponse(title, href, TvType.Movie) {
+                this.posterUrl = posterUrl
+            }
         } else {
-            // استخدام الطريقة الجديدة والمباشرة
-            TvSeriesSearchResponse(
-                title,
-                href,
-                this@Asia2Tv.name,
-                TvType.TvSeries,
-                posterUrl,
-                null,
-                null,
-            )
+            // استخدام دالة المساعدة الحديثة
+            newTvSeriesSearchResponse(title, href, TvType.TvSeries) {
+                this.posterUrl = posterUrl
+            }
         }
     }
 
@@ -72,27 +61,23 @@ class Asia2Tv : MainAPI() {
         val year = document.select("div.meta span a[href*=release]").first()?.text()?.toIntOrNull()
         val tags = document.select("div.meta span a[href*=genre]").map { it.text() }
         val rating = document.selectFirst("div.imdb span")?.text()?.let {
-            (it.toFloatOrNull()?.times(1000))?.toInt()
+            // استخدام .toRatingInt() لتحويل التقييم بشكل آمن
+            it.toRatingInt()
         }
         val recommendations = document.select("div.related div.item").mapNotNull {
             it.toSearchResponse()
         }
 
         return if (url.contains("/movie/")) {
-            // استخدام الطريقة الجديدة والمباشرة
-            MovieLoadResponse(
-                title,
-                url,
-                this.name,
-                TvType.Movie,
-                url,
-                poster,
-                year,
-                plot,
-                tags = tags,
-                rating = rating,
-                recommendations = recommendations
-            )
+            // استخدام دالة المساعدة الحديثة
+            newMovieLoadResponse(title, url, TvType.Movie, url) {
+                this.posterUrl = poster
+                this.year = year
+                this.plot = plot
+                this.tags = tags
+                this.rating = rating
+                this.recommendations = recommendations
+            }
         } else {
             val episodes = mutableListOf<Episode>()
             document.select("div#seasons div.season_item").forEachIndexed { seasonIndex, seasonElement ->
@@ -102,27 +87,24 @@ class Asia2Tv : MainAPI() {
                     val epHref = fixUrl(epLink.attr("href"))
                     val epName = epLink.text()
                     val epNum = epName.filter { it.isDigit() }.toIntOrNull()
-                    episodes.add(newEpisode(epHref) {
-                        this.name = epName
-                        this.season = seasonNum
-                        this.episode = epNum
-                    })
+                    // استخدام newEpisode مباشرة
+                    episodes.add(Episode(
+                        data = epHref,
+                        name = epName,
+                        season = seasonNum,
+                        episode = epNum,
+                    ))
                 }
             }
-            // استخدام الطريقة الجديدة والمباشرة
-            TvSeriesLoadResponse(
-                title,
-                url,
-                this.name,
-                TvType.TvSeries,
-                episodes.reversed(),
-                poster,
-                year,
-                plot,
-                tags = tags,
-                rating = rating,
-                recommendations = recommendations
-            )
+            // استخدام دالة المساعدة الحديثة
+            newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes.reversed()) {
+                this.posterUrl = poster
+                this.year = year
+                this.plot = plot
+                this.tags = tags
+                this.rating = rating
+                this.recommendations = recommendations
+            }
         }
     }
 
