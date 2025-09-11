@@ -41,24 +41,17 @@ jobs:
 
       - name: Build Plugins
         run: |
-          chmod +x ./gradlew
-          # التغيير الأول هنا: استبدال ExampleProvider بـ Asia2tv
-          ./gradlew :plugins:Asia2tv:assembleRelease --stacktrace
+          cd $GITHUB_WORKSPACE/src
+          chmod +x gradlew
+          ./gradlew make makePluginsJson
+          cp **/build/*.cs3 $GITHUB_WORKSPACE/builds
+          cp build/plugins.json $GITHUB_WORKSPACE/builds
 
       - name: Push builds
         run: |
-          cd builds
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f --ignore-unmatch *.cs3
-          # التغيير الثاني هنا: البحث عن ملف .cs3 في مجلد Asia2tv
-          find ../plugins/Asia2tv/build -type f -name "*.cs3" -exec mv {} . \;
-          # Verify that the file was moved
-          ls -l
-          if [[ -z $(git status -s) ]]; then
-            echo "No changes to commit"
-            exit 0
-          fi
+          cd $GITHUB_WORKSPACE/builds
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
           git add .
-          git commit -m "Update plugins"
-          git push
+          git commit --amend -m "Build $GITHUB_SHA" || exit 0   # do not error if nothing to commit
+          git push --force
