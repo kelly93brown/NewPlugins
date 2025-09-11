@@ -1,4 +1,4 @@
-// v12: The final version based on your correct analysis and official compatibility rules.
+// v13: Final syntax fix. Moving the compilerOptions block to its correct location.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -10,11 +10,9 @@ buildscript {
         maven("https://jitpack.io")
     }
     dependencies {
-        // v12 FIX: Using officially compatible versions as per your research.
-        // This combination is known to work together.
         classpath("com.android.tools.build:gradle:8.5.0")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0") // Per official Android Gradle Plugin 8.5.0 compatibility
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     }
 }
 
@@ -56,9 +54,12 @@ subprojects {
             targetCompatibility = JavaVersion.VERSION_1_8
         }
         
-        // v12 FIX: Using the modern compilerOptions DSL to fix the deprecation warning.
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+        // v13 FIX: This block was in the wrong place. It belongs inside the android { ... } block.
+        // It's the modern replacement for kotlinOptions.
+        tasks.withType<KotlinCompile>().configureEach {
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+            }
         }
     }
 
@@ -76,7 +77,6 @@ subprojects {
     }
 }
 
-// v12 FIX: Using the modern way to get the build directory to fix the deprecation warning.
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
