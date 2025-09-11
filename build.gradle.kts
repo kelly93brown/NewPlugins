@@ -8,11 +8,12 @@ buildscript {
         google()
         mavenCentral()
         maven("https://jitpack.io")
+        gradlePluginPortal() // ⬅️ أضفت هذا السطر المهم!
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.5.0")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
-        classpath("org.jetbrains.kotlin.gradle.plugin:2.1.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20") // ⬅️ صححت هذا السطر!
     }
 }
 
