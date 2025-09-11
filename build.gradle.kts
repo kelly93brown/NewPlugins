@@ -1,4 +1,5 @@
-// v22: Applying your brilliant suggestion. Moving buildConfig to the correct location.
+// v11: The ROOT CAUSE FIX based on your analysis.
+// Updating build tools (classpath) to modern, compatible versions.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -10,9 +11,10 @@ buildscript {
         maven("https://jitpack.io")
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.3.2")
-        classpath("com.github.recloudstream:gradle:-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
+        // UPDATED to match working projects
+        classpath("com.android.tools.build:gradle:8.4.1") // Or a more recent stable version
+        classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22") // Stable version compatible with AGP
     }
 }
 
@@ -42,13 +44,12 @@ subprojects {
     android {
         namespace = "com.adamwolker21.${project.name}"
         compileSdkVersion(34)
-
-        // THIS IS YOUR FIX APPLIED
+        
         buildFeatures.buildConfig = true
 
         defaultConfig {
             minSdk = 24
-            targetSdk = 34
+            // targetSdk is automatically set by the CloudStream plugin
         }
 
         compileOptions {
@@ -70,7 +71,8 @@ subprojects {
         cloudstream("com.lagradost:cloudstream3:pre-release")
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.17.2")
-        implementation("com.github.Blatzar:NiceHttp:0.4.11")
+        // NiceHttp is often included in the base plugin, but can be added if needed
+        // implementation("com.github.Blatzar:NiceHttp:0.4.11") 
 
         implementation("androidx.core:core-ktx:1.13.1")
         implementation("androidx.appcompat:appcompat:1.6.1")
@@ -78,6 +80,6 @@ subprojects {
     }
 }
 
-task<Delete>("clean") {
+tasks.register<Delete>("clean") {
     delete(rootProject.buildDir)
 }
