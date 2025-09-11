@@ -28,10 +28,9 @@ class Asia2Tv : MainAPI() {
         
         document.select("div.Blocks").forEach { section ->
             val title = section.selectFirst("div.title-bar h2")?.text() ?: return@forEach
-            val categoryUrl = section.selectFirst("div.title-bar a.more")?.attr("href") ?: return@forEach
             val items = section.select("div.item").mapNotNull { it.toSearchResponse() }
             if (items.isNotEmpty()) {
-                allhome.add(HomePageList(title, items, fixUrl(categoryUrl)))
+                allhome.add(HomePageList(title, items))
             }
         }
         return HomePageResponse(allhome)
