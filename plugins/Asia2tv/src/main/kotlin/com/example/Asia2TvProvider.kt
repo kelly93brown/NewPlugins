@@ -1,37 +1,29 @@
-// Refactored version: The plugin registration code has been moved to Asia2TvPlugin.kt
 package com.example
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
+import com.lagradost.cloudstream3.LoadResponse.Companion.newMovieLoadResponse
+import com.lagradost.cloudstream3.LoadResponse.Companion.newTvSeriesLoadResponse
 
-// This class now only contains the logic for the provider itself.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
     override var lang = "ar"
     override val hasMainPage = true
+    override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
-    override val supportedTypes = setOf(
-        TvType.Movie,
-        TvType.TvSeries
-    )
-
-    override suspend fun getMainPage(
-        page: Int,
-        request: MainPageRequest
-    ): HomePageResponse {
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page == 1) mainUrl else request.data
-
         val document = app.get(url).document
         val allhome = mutableListOf<HomePageList>()
 
         if (page > 1) {
             val items = document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
-            return HomePageResponse(listOf(HomePageList(request.name, items, true)))
+            return newHomePageResponse(request.name, items, true)
         }
-
+        
         document.select("div.Blocks").forEach { section ->
             val title = section.selectFirst("div.title-bar h2")?.text() ?: return@forEach
             val categoryUrl = section.selectFirst("div.title-bar a.more")?.attr("href") ?: return@forEach
@@ -51,15 +43,18 @@ class Asia2Tv : MainAPI() {
         val posterUrl = posterDiv.selectFirst("img")?.attr("data-src") ?: posterDiv.selectFirst("img")?.attr("src")
 
         return if (href.contains("/movie/")) {
-            MovieSearchResponse(title, href, this@Asia2Tv.name, TvType.Movie, posterUrl, null)
+            newMovieSearchResponse(title, href, this@Asia2Tv.name) {
+                this.posterUrl = posterUrl
+            }
         } else {
-            TvSeriesSearchResponse(title, href, this@Asia2Tv.name, TvType.TvSeries, posterUrl, null, null)
+            newTvSeriesSearchResponse(title, href, this@Asia2Tv.name) {
+                this.posterUrl = posterUrl
+            }
         }
     }
 
     override suspend fun load(url: String): LoadResponse? {
         val document = app.get(url).document
-
         val title = document.selectFirst("div.data h1")?.text()?.trim() ?: return null
         val poster = document.selectFirst("div.poster img")?.attr("src")
         val plot = document.selectFirst("div.story p")?.text()?.trim()
@@ -90,7 +85,11 @@ class Asia2Tv : MainAPI() {
                     val epHref = fixUrl(epLink.attr("href"))
                     val epName = epLink.text()
                     val epNum = epName.filter { it.isDigit() }.toIntOrNull()
-                    episodes.add(Episode(data = epHref, name = epName, season = seasonNum, episode = epNum))
+                    episodes.add(newEpisode(epHref) {
+                        this.name = epName
+                        this.season = seasonNum
+                        this.episode = epNum
+                    })
                 }
             }
             newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes.reversed()) {
@@ -103,12 +102,13 @@ class Asia2Tv : MainAPI() {
             }
         }
     }
-    
+
     override suspend fun loadLinks(
         data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = app.get(data).document
-        document.select("div.servers-list iframe").apmap { iframeSrc ->
+        document.select("div.servers-list iframe").apmap { iframe ->
+            val iframeSrc = iframe.attr("src")
             loadExtractor(iframeSrc, data, subtitleCallback, callback)
         }
         return true
