@@ -40,14 +40,14 @@ class Asia2Tv : MainAPI() {
         val title = this.selectFirst("div.data h2 a")?.text() ?: return null
         val posterUrl = posterDiv.selectFirst("img")?.attr("data-src") ?: posterDiv.selectFirst("img")?.attr("src")
 
+        // v9 FIX: Reverting to the original signature using the provider name.
+        // This might match the project's specific dependency version.
         return if (href.contains("/movie/")) {
-            // v8 FIX: The TvType parameter is no longer needed here.
-            newMovieSearchResponse(title, href) {
+            newMovieSearchResponse(title, href, this@Asia2Tv.name) {
                 this.posterUrl = posterUrl
             }
         } else {
-            // v8 FIX: The TvType parameter is no longer needed here.
-            newTvSeriesSearchResponse(title, href) {
+            newTvSeriesSearchResponse(title, href, this@Asia2Tv.name) {
                 this.posterUrl = posterUrl
             }
         }
