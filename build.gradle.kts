@@ -1,4 +1,4 @@
-// v13: Final syntax fix. Moving the compilerOptions block to its correct location.
+// v14: Adding the required NiceHttp dependency.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -12,7 +12,7 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle:8.5.0")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
+        classpath("org.jetbrains.kotlin.gradle.plugin:2.0.0")
     }
 }
 
@@ -54,8 +54,6 @@ subprojects {
             targetCompatibility = JavaVersion.VERSION_1_8
         }
         
-        // v13 FIX: This block was in the wrong place. It belongs inside the android { ... } block.
-        // It's the modern replacement for kotlinOptions.
         tasks.withType<KotlinCompile>().configureEach {
             compilerOptions {
                 jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
@@ -70,6 +68,8 @@ subprojects {
         cloudstream("com.lagradost:cloudstream3:pre-release")
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.17.2")
+        // v14 FIX: Add the essential networking library explicitly.
+        implementation("com.github.Blatzar:NiceHttp:0.4.11")
         
         implementation("androidx.core:core-ktx:1.13.1")
         implementation("androidx.appcompat:appcompat:1.6.1")
