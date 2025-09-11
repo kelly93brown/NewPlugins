@@ -1,6 +1,4 @@
-# v23: The final victory. The build is successful, this just corrects the path to find the final plugin file.
-name: Build
-
+name: Build Plugins
 on:
   push:
     branches:
@@ -26,7 +24,7 @@ jobs:
 
       - name: Sanitize builds checkout
         run: |
-          if [[ -f "builds/build.gradle.kts" ]]; then
+          if [ -f "builds/build.gradle.kts" ]; then
             mv builds/build.gradle.kts builds/build.gradle.kts.bak
           fi
 
@@ -40,24 +38,28 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Build Plugins
-        run: |
-          chmod +x ./gradlew
-          ./gradlew :plugins:ExampleProvider:assembleRelease --stacktrace
+        run: ./gradlew assembleRelease
 
       - name: Push builds
         run: |
-          cd builds
+          # The two lines below are the fix. They configure git with a user identity.
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f --ignore-unmatch *.cs3
-          # THE FIX IS HERE: Find the .cs3 file wherever it is and move it here.
-          find ../plugins/ExampleProvider/build -type f -name "*.cs3" -exec mv {} . \;
-          # Verify that the file was moved
-          ls -l
-          if [[ -z $(git status -s) ]]; then
-            echo "No changes to commit"
-            exit 0
-          fi
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          cd builds
+          # Use find to locate the .cs3 file regardless of its subdirectory
+          find ../ -name "*.cs3" -exec mv {} . \;
+          # Remove the temporary backup file if it exists
+          rm -f build.gradle.kts.bak
           git add .
-          git commit -m "Update plugins"
-          git push
+          git commit -m "Update builds" || true
+          git push origin builds
+
+      - name: Post Checkout builds
+        run: "true"
+
+      - name: Post Checkout
+        run: "true"
+
+      - name: Complete job
+        run: "true"
