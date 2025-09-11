@@ -1,14 +1,11 @@
 package com.example
 
-import com.lagradost.cloudstream3.LoadResponse.Companion.newMovieLoadResponse
-import com.lagradost.cloudstream3.LoadResponse.Companion.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 
-
-class Asia2Tv : MainAPI() { // بداية الكلاس
+class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
     override var lang = "ar"
@@ -44,13 +41,26 @@ class Asia2Tv : MainAPI() { // بداية الكلاس
         val posterUrl = posterDiv.selectFirst("img")?.attr("data-src") ?: posterDiv.selectFirst("img")?.attr("src")
 
         return if (href.contains("/movie/")) {
-            newMovieSearchResponse(title, href, this@Asia2Tv.name) {
-                this.posterUrl = posterUrl
-            }
+            // استخدام الطريقة الجديدة والمباشرة
+            MovieSearchResponse(
+                title,
+                href,
+                this@Asia2Tv.name,
+                TvType.Movie,
+                posterUrl,
+                null,
+            )
         } else {
-            newTvSeriesSearchResponse(title, href, this@Asia2Tv.name) {
-                this.posterUrl = posterUrl
-            }
+            // استخدام الطريقة الجديدة والمباشرة
+            TvSeriesSearchResponse(
+                title,
+                href,
+                this@Asia2Tv.name,
+                TvType.TvSeries,
+                posterUrl,
+                null,
+                null,
+            )
         }
     }
 
@@ -69,14 +79,20 @@ class Asia2Tv : MainAPI() { // بداية الكلاس
         }
 
         return if (url.contains("/movie/")) {
-            newMovieLoadResponse(title, url, TvType.Movie, url) {
-                this.posterUrl = poster
-                this.year = year
-                this.plot = plot
-                this.tags = tags
-                this.rating = rating
-                this.recommendations = recommendations
-            }
+            // استخدام الطريقة الجديدة والمباشرة
+            MovieLoadResponse(
+                title,
+                url,
+                this.name,
+                TvType.Movie,
+                url,
+                poster,
+                year,
+                plot,
+                tags = tags,
+                rating = rating,
+                recommendations = recommendations
+            )
         } else {
             val episodes = mutableListOf<Episode>()
             document.select("div#seasons div.season_item").forEachIndexed { seasonIndex, seasonElement ->
@@ -93,16 +109,22 @@ class Asia2Tv : MainAPI() { // بداية الكلاس
                     })
                 }
             }
-            newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes.reversed()) {
-                this.posterUrl = poster
-                this.year = year
-                this.plot = plot
-                this.tags = tags
-                this.rating = rating
-                this.recommendations = recommendations
-            }
+            // استخدام الطريقة الجديدة والمباشرة
+            TvSeriesLoadResponse(
+                title,
+                url,
+                this.name,
+                TvType.TvSeries,
+                episodes.reversed(),
+                poster,
+                year,
+                plot,
+                tags = tags,
+                rating = rating,
+                recommendations = recommendations
+            )
         }
-    } // <-- تأكد من وجود قوس الإغلاق هذا لدالة load
+    }
 
     override suspend fun loadLinks(
         data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit
@@ -120,5 +142,4 @@ class Asia2Tv : MainAPI() { // بداية الكلاس
         val document = app.get(url).document
         return document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
     }
-    
-} // <-- تأكد من وجود قوس الإغلاق هذا للكلاس بأكمله
+}
