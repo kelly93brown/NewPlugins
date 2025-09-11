@@ -1,7 +1,5 @@
 package com.example
 
-// --- 1. تمت إضافة الـ imports الناقصة هنا ---
-// هذه الدوال ضرورية لإنشاء صفحات تفاصيل الأفلام والمسلسلات.
 import com.lagradost.cloudstream3.LoadResponse.Companion.newMovieLoadResponse
 import com.lagradost.cloudstream3.LoadResponse.Companion.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.*
@@ -10,7 +8,7 @@ import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 
 
-class Asia2Tv : MainAPI() {
+class Asia2Tv : MainAPI() { // بداية الكلاس
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
     override var lang = "ar"
@@ -24,7 +22,6 @@ class Asia2Tv : MainAPI() {
 
         if (page > 1) {
             val items = document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
-            // لا يوجد تغيير هنا، هذا الجزء صحيح
             return newHomePageResponse(request.name, items, true)
         }
         
@@ -33,9 +30,6 @@ class Asia2Tv : MainAPI() {
             val categoryUrl = section.selectFirst("div.title-bar a.more")?.attr("href") ?: return@forEach
             val items = section.select("div.item").mapNotNull { it.toSearchResponse() }
             if (items.isNotEmpty()) {
-                // --- 2. تم إصلاح الخطأ هنا ---
-                // تم تغيير اسم المعامل 'data' إلى 'url' ليتوافق مع تعريف HomePageList.
-                // هذا المعامل يُستخدم لتمرير رابط "المزيد" لصفحات الفئات.
                 allhome.add(HomePageList(title, items, url = categoryUrl))
             }
         }
@@ -74,7 +68,6 @@ class Asia2Tv : MainAPI() {
             it.toSearchResponse()
         }
 
-        // الكود هنا كان صحيحًا بالفعل ويستخدم TvType.Movie بشكل سليم
         return if (url.contains("/movie/")) {
             newMovieLoadResponse(title, url, TvType.Movie, url) {
                 this.posterUrl = poster
@@ -109,7 +102,7 @@ class Asia2Tv : MainAPI() {
                 this.recommendations = recommendations
             }
         }
-    }
+    } // <-- تأكد من وجود قوس الإغلاق هذا لدالة load
 
     override suspend fun loadLinks(
         data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit
@@ -127,60 +120,5 @@ class Asia2Tv : MainAPI() {
         val document = app.get(url).document
         return document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
     }
-}        val recommendations = document.select("div.related div.item").mapNotNull {
-            it.toSearchResponse()
-        }
-
-        return if (url.contains("/movie/")) {
-            newMovieLoadResponse(title, url, TvType.Movie, url) {
-                this.posterUrl = poster
-                this.year = year
-                this.plot = plot
-                this.tags = tags
-                this.rating = rating
-                this.recommendations = recommendations
-            }
-        } else {
-            val episodes = mutableListOf<Episode>()
-            document.select("div#seasons div.season_item").forEachIndexed { seasonIndex, seasonElement ->
-                val seasonNum = seasonElement.selectFirst("h3")?.text()?.filter { it.isDigit() }?.toIntOrNull() ?: (seasonIndex + 1)
-                seasonElement.select("ul.episodes li").forEach { episodeElement ->
-                    val epLink = episodeElement.selectFirst("a") ?: return@forEach
-                    val epHref = fixUrl(epLink.attr("href"))
-                    val epName = epLink.text()
-                    val epNum = epName.filter { it.isDigit() }.toIntOrNull()
-                    episodes.add(newEpisode(epHref) {
-                        this.name = epName
-                        this.season = seasonNum
-                        this.episode = epNum
-                    })
-                }
-            }
-            newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes.reversed()) {
-                this.posterUrl = poster
-                this.year = year
-                this.plot = plot
-                this.tags = tags
-                this.rating = rating
-                this.recommendations = recommendations
-            }
-        }
-    }
-
-    override suspend fun loadLinks(
-        data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit
-    ): Boolean {
-        val document = app.get(data).document
-        document.select("div.servers-list iframe").apmap { iframe ->
-            val iframeSrc = iframe.attr("src")
-            loadExtractor(iframeSrc, data, subtitleCallback, callback)
-        }
-        return true
-    }
-
-    override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/?s=$query"
-        val document = app.get(url).document
-        return document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
-    }
-}
+    
+} // <-- تأكد من وجود قوس الإغلاق هذا للكلاس بأكمله
