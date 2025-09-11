@@ -41,11 +41,15 @@ class Asia2Tv : MainAPI() {
         val posterUrl = posterDiv.selectFirst("img")?.attr("data-src") ?: posterDiv.selectFirst("img")?.attr("src")
 
         return if (href.contains("/movie/")) {
-            newMovieSearchResponse(title, href, TvType.Movie) {
+            // v6 FIX: The 'href' (url) is now set inside the lambda block.
+            newMovieSearchResponse(title, TvType.Movie) {
+                this.url = href
                 this.posterUrl = posterUrl
             }
         } else {
-            newTvSeriesSearchResponse(title, href, TvType.TvSeries) {
+            // v6 FIX: The 'href' (url) is now set inside the lambda block.
+            newTvSeriesSearchResponse(title, TvType.TvSeries) {
+                this.url = href
                 this.posterUrl = posterUrl
             }
         }
@@ -82,7 +86,6 @@ class Asia2Tv : MainAPI() {
                     val epName = epLink.text()
                     val epNum = epName.filter { it.isDigit() }.toIntOrNull()
                     
-                    // هذا هو السطر الذي تم تصحيحه
                     episodes.add(newEpisode(epHref) {
                         this.name = epName
                         this.season = seasonNum
