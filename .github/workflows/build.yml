@@ -1,4 +1,4 @@
-# v23: The final victory. The build is successful, this just corrects the path to find the final plugin file.
+# v2: Corrected the build path to target the Asia2tv plugin instead of the example.
 name: Build
 
 on:
@@ -42,7 +42,8 @@ jobs:
       - name: Build Plugins
         run: |
           chmod +x ./gradlew
-          ./gradlew :plugins:ExampleProvider:assembleRelease --stacktrace
+          # التغيير الأول هنا: استبدال ExampleProvider بـ Asia2tv
+          ./gradlew :plugins:Asia2tv:assembleRelease --stacktrace
 
       - name: Push builds
         run: |
@@ -50,8 +51,8 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm -f --ignore-unmatch *.cs3
-          # THE FIX IS HERE: Find the .cs3 file wherever it is and move it here.
-          find ../plugins/ExampleProvider/build -type f -name "*.cs3" -exec mv {} . \;
+          # التغيير الثاني هنا: البحث عن ملف .cs3 في مجلد Asia2tv
+          find ../plugins/Asia2tv/build -type f -name "*.cs3" -exec mv {} . \;
           # Verify that the file was moved
           ls -l
           if [[ -z $(git status -s) ]]; then
