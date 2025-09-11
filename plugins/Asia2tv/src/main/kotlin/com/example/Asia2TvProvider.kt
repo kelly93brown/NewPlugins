@@ -41,13 +41,13 @@ class Asia2Tv : MainAPI() {
         val posterUrl = posterDiv.selectFirst("img")?.attr("data-src") ?: posterDiv.selectFirst("img")?.attr("src")
 
         return if (href.contains("/movie/")) {
-            // v7 FIX: The URL (href) must be in the constructor, not the lambda.
-            newMovieSearchResponse(title, href, TvType.Movie) {
+            // v8 FIX: The TvType parameter is no longer needed here.
+            newMovieSearchResponse(title, href) {
                 this.posterUrl = posterUrl
             }
         } else {
-            // v7 FIX: The URL (href) must be in the constructor, not the lambda.
-            newTvSeriesSearchResponse(title, href, TvType.TvSeries) {
+            // v8 FIX: The TvType parameter is no longer needed here.
+            newTvSeriesSearchResponse(title, href) {
                 this.posterUrl = posterUrl
             }
         }
