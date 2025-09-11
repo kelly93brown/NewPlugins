@@ -4,8 +4,11 @@ package com.example
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.AppUtils
 import org.jsoup.nodes.Element
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.awaitAll
 
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
@@ -29,7 +32,7 @@ class Asia2Tv : MainAPI() {
             val categoryUrl = section.selectFirst("div.title-bar a.more")?.attr("href") ?: return@forEach
             val items = section.select("div.item").mapNotNull { it.toSearchResponse() }
             if (items.isNotEmpty()) {
-                allhome.add(HomePageList(title, items, url = categoryUrl))
+                allhome.add(HomePageList(title, items, url = fixUrl(categoryUrl)))
             }
         }
         return HomePageResponse(allhome, hasNext = true)
@@ -43,11 +46,11 @@ class Asia2Tv : MainAPI() {
         val posterUrl = posterDiv.selectFirst("img")?.attr("data-src") ?: posterDiv.selectFirst("img")?.attr("src")
 
         return if (href.contains("/movie/")) {
-            newMovieSearchResponse(title, href, this@Asia2Tv.name) {
+            newMovieSearchResponse(title, href) {
                 this.posterUrl = posterUrl
             }
         } else {
-            newTvSeriesSearchResponse(title, href, this@Asia2Tv.name) {
+            newTvSeriesSearchResponse(title, href) {
                 this.posterUrl = posterUrl
             }
         }
@@ -105,9 +108,15 @@ class Asia2Tv : MainAPI() {
         data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = app.get(data).document
-        document.select("div.servers-list iframe").apmap { iframe ->
-            val iframeSrc = iframe.attr("src")
-            loadExtractor(iframeSrc, data, subtitleCallback, callback)
+        val iframes = document.select("div.servers-list iframe")
+        
+        coroutineScope {
+            iframes.map { iframe ->
+                async {
+                    val iframeSrc = fixUrl(iframe.attr("src"))
+                    loadExtractor(iframeSrc, data, subtitleCallback, callback)
+                }
+            }.awaitAll()
         }
         return true
     }
