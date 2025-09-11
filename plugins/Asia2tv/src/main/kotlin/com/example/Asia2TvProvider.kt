@@ -1,24 +1,12 @@
-// v7: Feature Complete - Added Rating and Recommendations.
+// Refactored version: The plugin registration code has been moved to Asia2TvPlugin.kt
 package com.example
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
-import com.lagradost.cloudstream3.plugins.Plugin
-import android.content.Context
-import com.lagradost.cloudstream3.network.CloudflareKiller
 import org.jsoup.nodes.Element
 
-@CloudstreamPlugin
-class Asia2TvProviderPlugin: Plugin() {
-    private val cloudflareKiller = CloudflareKiller()
-    override fun load(context: Context) {
-        registerMainAPI(Asia2Tv())
-        addInterceptor(cloudflareKiller)
-    }
-}
-
+// This class now only contains the logic for the provider itself.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
@@ -77,13 +65,9 @@ class Asia2Tv : MainAPI() {
         val plot = document.selectFirst("div.story p")?.text()?.trim()
         val year = document.select("div.meta span a[href*=release]").first()?.text()?.toIntOrNull()
         val tags = document.select("div.meta span a[href*=genre]").map { it.text() }
-        
-        // Feature: Extracting Rating
         val rating = document.selectFirst("div.imdb span")?.text()?.let {
             (it.toFloatOrNull()?.times(1000))?.toInt()
         }
-
-        // Feature: Extracting Recommendations
         val recommendations = document.select("div.related div.item").mapNotNull {
             it.toSearchResponse()
         }
