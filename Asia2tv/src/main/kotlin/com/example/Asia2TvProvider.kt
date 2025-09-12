@@ -16,6 +16,11 @@ class Asia2Tv : MainAPI() {
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
+    // Common headers to mimic a browser
+    private val headers = mapOf(
+        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
+    )
+
     // Data class to parse the JSON response for server iframes
     data class PlayerResponse(
         @JsonProperty("success") val success: Boolean,
@@ -25,16 +30,20 @@ class Asia2Tv : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         if (page > 1) return HomePageResponse(emptyList())
 
-        val document = app.get(mainUrl).document
+        val document = app.get(mainUrl, headers = headers).document
         val allhome = mutableListOf<HomePageList>()
 
-        document.select("div.content-box").forEach { section ->
-            val title = section.selectFirst("div.block_title h2 a")?.text() ?: return@forEach
-            // Filter out sections that are not for movies or series
+        // A more robust way to parse sections: find title, then find sibling with items
+        document.select("div.block_title").forEach { titleElement ->
+            val title = titleElement.selectFirst("h2 a")?.text() ?: return@forEach
+            // Filter out unwanted sections
             if (title.contains("نجوم") || title.contains("أخبار")) return@forEach
 
-            val items = section.select("div.items div.item").mapNotNull { it.toSearchResponse() }
-            if (items.isNotEmpty()) {
+            // The items are usually in the next sibling element
+            val itemsContainer = titleElement.nextElementSibling()
+            val items = itemsContainer?.select("div.item")?.mapNotNull { it.toSearchResponse() }
+
+            if (!items.isNullOrEmpty()) {
                 allhome.add(HomePageList(title, items))
             }
         }
@@ -64,18 +73,17 @@ class Asia2Tv : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=$query"
-        val document = app.get(url).document
+        val document = app.get(url, headers = headers).document
         return document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        val document = app.get(url).document
+        val document = app.get(url, headers = headers).document
         val title = document.selectFirst("div.data h1")?.text()?.trim() ?: return null
         val poster = document.selectFirst("div.poster img")?.attr("src")
         val plot = document.selectFirst("div.story p")?.text()?.trim()
         val year = document.select("div.details ul li a[href*=release]").firstOrNull()?.text()?.toIntOrNull()
         val tags = document.select("div.details ul li a[href*=genre]").map { it.text() }
-        // FIXED RATING LINE
         val rating = document.selectFirst("div.imdb span")?.text()?.toFloatOrNull()?.times(10)?.toInt()
         val recommendations = document.select("div.related div.item").mapNotNull { it.toSearchResponse() }
 
@@ -127,22 +135,21 @@ class Asia2Tv : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = app.get(data).document
+        val document = app.get(data, headers = headers).document
         val serverIds = document.select("div.servers-list ul li").mapNotNull {
             it.attr("data-server").ifBlank { null }
         }
 
         val ajaxUrl = "$mainUrl/wp-admin/admin-ajax.php"
+        val ajaxHeaders = headers + mapOf("Referer" to data)
 
-        // The website loads the player iframe using an AJAX call.
-        // We must replicate this call to get the iframe source URL.
         coroutineScope {
             serverIds.map { serverId ->
                 async {
                     try {
                         val response = app.post(
                             ajaxUrl,
-                            headers = mapOf("Referer" to data),
+                            headers = ajaxHeaders,
                             data = mapOf(
                                 "action" to "get_player_content",
                                 "server" to serverId
@@ -150,7 +157,6 @@ class Asia2Tv : MainAPI() {
                         ).parsed<PlayerResponse>()
 
                         if (response.success) {
-                            // The response data contains the full iframe HTML, we extract the src
                             val iframeSrc = Regex("""src=["'](.*?)["']""").find(response.data)?.groupValues?.get(1)
                             if (iframeSrc != null) {
                                 loadExtractor(fixUrl(iframeSrc), data, subtitleCallback, callback)
