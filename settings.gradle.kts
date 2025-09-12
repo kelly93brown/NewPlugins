@@ -1,8 +1,14 @@
-// v14: Simplifying back to the basics. This file's only job is to include the plugins.
-rootProject.name = "TestPlugins"
+// settings.gradle.kts (v1)
 
-file("plugins").listFiles()?.forEach {
-    if (it.isDirectory) {
-        include(":plugins:${it.name}")
+// يبدأ بالبحث عن المجلدات من الدليل الرئيسي للمشروع
+rootDir.listFiles()?.forEach { file ->
+    // يتأكد أن ما وجده هو مجلد وليس ملفًا، ويستثني المجلدات الخاصة مثل .git و .github
+    if (file.isDirectory && !file.name.startsWith(".")) {
+        // يتحقق من وجود ملف الإعدادات الخاص بالإضافة داخل المجلد
+        val buildFile = file.resolve("build.gradle.kts")
+        if (buildFile.exists()) {
+            // إذا وجده، يقوم بتضمين هذا المجلد كـ "وحدة" أو "إضافة" في المشروع
+            include(file.name)
+        }
     }
 }
