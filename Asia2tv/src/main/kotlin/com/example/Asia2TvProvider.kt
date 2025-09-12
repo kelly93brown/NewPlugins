@@ -10,8 +10,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.awaitAll
 
-// v11: Hybrid approach. Combines the stable static mainPage from v9 
-// with the correct `div.postmovie` selector discovered by the user.
+// v12: Adding a 'Referer' header to the category page request.
+// This might be the key to making the site serve the correct HTML.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
@@ -24,7 +24,6 @@ class Asia2Tv : MainAPI() {
         @JsonProperty("data") val data: String
     )
 
-    // Using the stable static mainPage structure that we know works for displaying titles.
     override val mainPage = mainPageOf(
         "/movies" to "الأفلام",
         "/series" to "المسلسلات",
@@ -39,9 +38,10 @@ class Asia2Tv : MainAPI() {
             "$mainUrl${request.data}"
         }
         
-        val document = app.get(url).document
+        // The key change in v12: adding the Referer header to the request.
+        val headers = mapOf("Referer" to mainUrl)
+        val document = app.get(url, headers = headers).document
         
-        // Applying the user's key discovery: the content is inside `div.postmovie`.
         val items = document.select("div.postmovie").mapNotNull { it.toSearchResponse() }
         
         val hasNext = document.selectFirst("a.nextpostslink") != null
@@ -49,7 +49,6 @@ class Asia2Tv : MainAPI() {
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
-        // This function is tailored to the `div.postmovie` structure
         val linkElement = this.selectFirst("a") ?: return null
         val href = fixUrl(linkElement.attr("href"))
         if (href.isBlank()) return null
@@ -73,7 +72,6 @@ class Asia2Tv : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=$query"
         val document = app.get(url).document
-        // Search results page uses a different structure: article.item
         return document.select("article.item").mapNotNull {
             val linkElement = it.selectFirst("div.poster a") ?: return@mapNotNull null
             val href = fixUrl(linkElement.attr("href"))
