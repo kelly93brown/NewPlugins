@@ -1,4 +1,4 @@
-version = 1
+version = 2
 
 cloudstream {
     language = "ar"
@@ -7,8 +7,10 @@ cloudstream {
 
     status = 1 
     tvTypes = listOf(
-        "Movie",
         "TvSeries",
+        "Movie",
+        "AsianDrama",
+        "Anime"
     )
 
     iconUrl = "https://asia2tv.com/frontend/default/assets/images/logo.png?ver=1.2"
