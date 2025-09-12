@@ -1,4 +1,6 @@
-// v22: إعادة ضبط الإعدادات إلى القالب الرسمي
+// v23: Final Attempt - A single, self-contained build file.
+// IMPORTANT: The settings.gradle.kts file must be deleted for this to work.
+
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -7,14 +9,21 @@ buildscript {
     repositories {
         google()
         mavenCentral()
-        gradlePluginPortal()
         maven("https://jitpack.io")
+        gradlePluginPortal()
     }
     dependencies {
-        // استخدام إصدارات مستقرة ومجربة من القالب الرسمي
         classpath("com.android.tools.build:gradle:8.1.1")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
     }
 }
 
@@ -34,7 +43,7 @@ subprojects {
     }
 
     android {
-        // ملاحظة: الـ namespace سيتم تحديده تلقائياً بواسطة إضافة cloudstream
+        namespace = "com.adamwolker21.${project.name}"
         compileSdkVersion(34)
 
         defaultConfig {
