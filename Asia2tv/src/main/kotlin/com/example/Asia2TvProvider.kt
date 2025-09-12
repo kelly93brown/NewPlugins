@@ -1,98 +1,94 @@
 package com.example
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
+import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import org.jsoup.nodes.Element
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.awaitAll
 
-class Asia2Tv : MainAPI() {
+class Asia2TvProvider : MainAPI() { // Renamed class to follow convention
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
     override var lang = "ar"
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
-    // Kept your headers, it's good practice.
-    private val headers = mapOf(
-        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
-        "Referer" to "$mainUrl/"
+    // v8 Fix: Removed custom headers to let CloudStream's smart HTTP client handle requests
+    // This is the most critical fix to bypass site protections.
+
+    data class PlayerResponse(
+        @JsonProperty("success") val success: Boolean,
+        @JsonProperty("data") val data: String
     )
-    
-    // Using your original mainPage structure as it's efficient.
+
     override val mainPage = mainPageOf(
-        "/newepisode" to "أحدث الحلقات",
-        "/status/live" to "يبث حاليا",
-        "/status/complete" to "أعمال مكتملة",
         "/movies" to "الأفلام",
-        "/series" to "المسلسلات"
+        "/series" to "المسلسلات",
+        "/status/live" to "يبث حاليا",
+        "/status/complete" to "أعمال مكتملة"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (page > 1) "$mainUrl${request.data}/page/$page" else "$mainUrl${request.data}"
-        val document = app.get(url, headers = headers).document
-
-        // FIX: The site structure changed. It no longer uses "div.items article.item".
-        // For category pages, it uses "div.postmovie".
-        // For the main page, it uses "article". We select both to be safe.
-        val items = document.select("div.postmovie, article").mapNotNull { it.toSearchResponse() }
+        val url = if (page > 1) {
+            "$mainUrl${request.data}/page/$page/"
+        } else {
+            "$mainUrl${request.data}"
+        }
         
-        // The logic for next page seems to have changed, we'll assume there's always more to load.
-        // A more robust solution would be to check for a specific "next" button if it exists.
-        return newHomePageResponse(request.name, items)
+        val document = app.get(url).document
+        
+        // Site uses <article class="item"> for content
+        val items = document.select("div.items article.item").mapNotNull { it.toSearchResponse() }
+        
+        val hasNext = document.selectFirst("a.nextpostslink") != null
+        return newHomePageResponse(request.name, items, hasNext)
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
-        // FIX: Selectors are updated to match the new structure of both <article> and <div.postmovie>
-        val linkElement = this.selectFirst("a") ?: return null
+        val linkElement = this.selectFirst("div.poster a") ?: return null
         val href = fixUrl(linkElement.attr("href"))
-        if (href.isBlank() || href == mainUrl) return null
+        if (href.isBlank()) return null
 
-        val title = this.selectFirst("h3.post-box-title, h4 > a")?.text() ?: return null
-        
-        // Site uses lazy loading with "data-src"
-        val posterUrl = this.selectFirst("img")?.attr("data-src")
+        val title = this.selectFirst("div.data h3 a")?.text() ?: return null
+        val posterUrl = this.selectFirst("div.poster img")?.let {
+            it.attr("data-src").ifBlank { it.attr("src") }
+        }
 
-        // Determine type based on URL structure, "/serie/" is more reliable than "/movie/"
-        val type = if (href.contains("/serie/")) TvType.TvSeries else TvType.Movie
+        val type = if (href.contains("/movie/")) TvType.Movie else TvType.TvSeries
 
-        return newTvShowSearchResponse(title, href, type) {
-            this.posterUrl = posterUrl
+        return if (type == TvType.Movie) {
+            newMovieSearchResponse(title, href, type) {
+                this.posterUrl = posterUrl
+            }
+        } else {
+            newTvSeriesSearchResponse(title, href, type) {
+                this.posterUrl = posterUrl
+            }
         }
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=$query"
-        val document = app.get(url, headers = headers).document
-        
-        // FIX: Search results now use <article> tags directly.
-        return document.select("article").mapNotNull { it.toSearchResponse() }
+        val document = app.get(url).document
+        return document.select("div.items article.item").mapNotNull { it.toSearchResponse() }
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        val document = app.get(url, headers = headers).document
-        val title = document.selectFirst("h1.name")?.text()?.trim() ?: return null
-        val poster = document.selectFirst("div.poster > img")?.attr("src")
-        val plot = document.selectFirst("div.story")?.text()?.trim()
-        val year = document.select("ul.info li:contains(سنة الإنتاج) a").text().toIntOrNull()
-        val tags = document.select("div.genres-single a[href*=genre]").map { it.text() }
-        val ratingText = document.selectFirst("span.rating-vote")?.text()
-        val rating = ratingText?.let { Regex("""(\d\.\d)""").find(it)?.groupValues?.get(1)?.toFloatOrNull() }?.times(10)?.toInt()
-        val recommendations = document.select("div.content-box article").mapNotNull { it.toSearchResponse() }
+        val document = app.get(url).document
+        val title = document.selectFirst("div.data h1")?.text()?.trim() ?: return null
+        val poster = document.selectFirst("div.poster img")?.attr("src")
+        val plot = document.selectFirst("div.story p")?.text()?.trim()
+        val year = document.select("div.details ul li a[href*=release]").firstOrNull()?.text()?.toIntOrNull()
+        val tags = document.select("div.details ul li a[href*=genre]").map { it.text() }
+        val rating = document.selectFirst("div.imdb span")?.text()?.toFloatOrNull()?.times(10)?.toInt()
+        val recommendations = document.select("div.related div.items article.item").mapNotNull { it.toSearchResponse() }
 
-        val isTvSeries = url.contains("/serie/")
-        
-        if (isTvSeries) {
-            // FIX: Episodes are now in a simple list of links within "div#DivEpisodes".
-            val episodes = document.select("div#DivEpisodes a").mapNotNull { episodeElement ->
-                val epUrl = episodeElement.attr("data-url").ifBlank { return@mapNotNull null }
-                val epName = episodeElement.text().trim()
-                
-                newEpisode(epUrl) {
-                    this.name = epName
-                }
-            }.reversed() // Reverse to show Episode 1 first.
-
-            return newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
+        return if (url.contains("/movie/")) {
+            newMovieLoadResponse(title, url, TvType.Movie, url) {
                 this.posterUrl = poster
                 this.year = year
                 this.plot = plot
@@ -100,8 +96,27 @@ class Asia2Tv : MainAPI() {
                 this.rating = rating
                 this.recommendations = recommendations
             }
-        } else { // It's a movie
-            return newMovieLoadResponse(title, url, TvType.Movie, url) {
+        } else {
+            // v8 Fix: Completely rewrote episode parsing logic based on correct site structure
+            val episodes = mutableListOf<Episode>()
+            document.select("div#seasons div.se-c").forEach { seasonElement ->
+                val seasonName = seasonElement.selectFirst("h3")?.text() ?: ""
+                val seasonNum = seasonName.filter { it.isDigit() }.toIntOrNull()
+
+                seasonElement.select("ul.episodes li").forEach { episodeElement ->
+                    val epLink = episodeElement.selectFirst("a") ?: return@forEach
+                    val epHref = fixUrl(epLink.attr("href"))
+                    val epName = epLink.text().trim()
+                    val epNum = epName.filter { it.isDigit() }.toIntOrNull()
+
+                    episodes.add(newEpisode(epHref) {
+                        this.name = epName
+                        this.season = seasonNum
+                        this.episode = epNum
+                    })
+                }
+            }
+            newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes.reversed()) {
                 this.posterUrl = poster
                 this.year = year
                 this.plot = plot
@@ -118,18 +133,42 @@ class Asia2Tv : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        // FIX: BIG CHANGE! The site no longer uses the complex AJAX system.
-        // It now embeds server iframes directly in the episode/movie page. This is much simpler.
-        // The 'data' variable is the URL of the episode page we get from the 'load' function.
-        val document = app.get(data, headers = headers).document
-
-        document.select("iframe").apmap { // Using apmap for parallel loading
-            val iframeSrc = it.attr("src")
-            if (iframeSrc.isNotBlank()) {
-                loadExtractor(fixUrl(iframeSrc), data, subtitleCallback, callback)
-            }
+        val document = app.get(data).document
+        val serverIds = document.select("div.servers-list ul li").mapNotNull {
+            it.attr("data-server").ifBlank { null }
         }
-        
+
+        val ajaxUrl = "$mainUrl/wp-admin/admin-ajax.php"
+        // v8 Fix: Only add the required Referer header, don't override other smart headers
+        val ajaxHeaders = mapOf("Referer" to data)
+
+        coroutineScope {
+            serverIds.map { serverId ->
+                async {
+                    try {
+                        val response = app.post(
+                            ajaxUrl,
+                            headers = ajaxHeaders,
+                            data = mapOf(
+                                "action" to "get_player_content",
+                                "server" to serverId
+                            )
+                        ).text
+
+                        val parsed = parseJson<PlayerResponse>(response)
+
+                        if (parsed.success) {
+                            val iframeSrc = Regex("""src=["'](.*?)["']""").find(parsed.data)?.groupValues?.get(1)
+                            if (iframeSrc != null) {
+                                loadExtractor(fixUrl(iframeSrc), data, subtitleCallback, callback)
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // Suppress exceptions to allow other servers to load
+                    }
+                }
+            }.awaitAll()
+        }
         return true
     }
 }
