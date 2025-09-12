@@ -16,19 +16,16 @@ class Asia2Tv : MainAPI() {
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
-    // Using a mobile User-Agent
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36",
         "Referer" to "$mainUrl/"
     )
 
-    // Data class to parse the JSON response for server iframes
     data class PlayerResponse(
         @JsonProperty("success") val success: Boolean,
         @JsonProperty("data") val data: String
     )
 
-    // Correct mainPage structure with the right links
     override val mainPage = mainPageOf(
         "/movies" to "الأفلام",
         "/series" to "المسلسلات",
@@ -38,36 +35,39 @@ class Asia2Tv : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page > 1) {
-            mainUrl + request.data + "/page/$page/"
+            "$mainUrl${request.data}/page/$page/"
         } else {
-            mainUrl + request.data
+            "$mainUrl${request.data}"
         }
         
         val document = app.get(url, headers = headers).document
         
-        // More specific selector to target the main content area (v6 fix)
-        val items = document.select("div.main-content div.item").mapNotNull { it.toSearchResponse() }
+        // v7 Fix: The site uses <article class="item">, not <div class="item">. This was the core issue.
+        val items = document.select("div.items article.item").mapNotNull { it.toSearchResponse() }
         
         val hasNext = document.selectFirst("a.nextpostslink") != null
         return newHomePageResponse(request.name, items, hasNext)
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
-        val linkElement = this.selectFirst("a") ?: return null
+        // v7 Fix: Using more specific selectors inside the item article
+        val linkElement = this.selectFirst("div.poster a") ?: return null
         val href = fixUrl(linkElement.attr("href"))
         if (href.isBlank()) return null
 
-        val title = this.selectFirst("div.data h3")?.text() ?: return null
+        val title = this.selectFirst("div.data h3 a")?.text() ?: this.selectFirst("div.data h3")?.text() ?: return null
         val posterUrl = this.selectFirst("div.poster img")?.let {
             it.attr("data-src").ifBlank { it.attr("src") }
         }
 
-        return if (href.contains("/movie/")) {
-            newMovieSearchResponse(title, href) {
+        val type = if (href.contains("/movie/")) TvType.Movie else TvType.TvSeries
+
+        return if (type == TvType.Movie) {
+            newMovieSearchResponse(title, href, type) {
                 this.posterUrl = posterUrl
             }
         } else {
-            newTvSeriesSearchResponse(title, href) {
+            newTvSeriesSearchResponse(title, href, type) {
                 this.posterUrl = posterUrl
             }
         }
@@ -76,7 +76,8 @@ class Asia2Tv : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=$query"
         val document = app.get(url, headers = headers).document
-        return document.select("div.main-content div.item").mapNotNull { it.toSearchResponse() }
+        // v7 Fix: Applying the same <article> fix to search results
+        return document.select("div.items article.item").mapNotNull { it.toSearchResponse() }
     }
 
     override suspend fun load(url: String): LoadResponse? {
@@ -87,7 +88,7 @@ class Asia2Tv : MainAPI() {
         val year = document.select("div.details ul li a[href*=release]").firstOrNull()?.text()?.toIntOrNull()
         val tags = document.select("div.details ul li a[href*=genre]").map { it.text() }
         val rating = document.selectFirst("div.imdb span")?.text()?.toFloatOrNull()?.times(10)?.toInt()
-        val recommendations = document.select("div.related div.item").mapNotNull { it.toSearchResponse() }
+        val recommendations = document.select("div.related div.item article.item").mapNotNull { it.toSearchResponse() }
 
         return if (url.contains("/movie/")) {
             newMovieLoadResponse(title, url, TvType.Movie, url) {
