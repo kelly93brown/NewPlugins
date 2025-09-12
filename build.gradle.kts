@@ -1,4 +1,4 @@
-// v14: Adding the required NiceHttp dependency.
+// v16: Reverting to the latest AGP and Kotlin to work with the updated Java 17 environment.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -8,12 +8,14 @@ buildscript {
         google()
         mavenCentral()
         maven("https://jitpack.io")
-        gradlePluginPortal() // ⬅️ أضفت هذا السطر المهم!
+        gradlePluginPortal()
     }
     dependencies {
+        // تم التعديل: استخدام أحدث إصدار متوافق مع Java 17
         classpath("com.android.tools.build:gradle:8.5.0")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20") // ⬅️ صححت هذا السطر!
+        // تم التعديل: استخدام أحدث إصدار متوافق
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20")
     }
 }
 
@@ -69,7 +71,6 @@ subprojects {
         cloudstream("com.lagradost:cloudstream3:pre-release")
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.17.2")
-        // v14 FIX: Add the essential networking library explicitly.
         implementation("com.github.Blatzar:NiceHttp:0.4.11")
         
         implementation("androidx.core:core-ktx:1.13.1")
