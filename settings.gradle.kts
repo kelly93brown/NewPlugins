@@ -1,9 +1,9 @@
-// هذا الملف ضروري جداً لتعريف Gradle بمكان البحث عن الإضافات
+// v22: إعادة ضبط الإعدادات إلى القالب الرسمي
 pluginManagement {
     repositories {
-        gradlePluginPortal()
         google()
         mavenCentral()
+        gradlePluginPortal()
         maven("https://jitpack.io")
     }
 }
@@ -16,7 +16,3 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "TestPlugins"
-
-// قم بتضمين مجلدات الإضافات الخاصة بك هنا
-// بناءً على هيكل مشروعك، لديك على الأقل هذا المجلد
-include(":ExampleProvider")
