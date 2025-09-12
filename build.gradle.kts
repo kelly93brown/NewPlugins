@@ -1,9 +1,11 @@
-// v17: Pinning plugin versions to a known-good, stable configuration from a working project.
+// v18: استخدام إصدار إضافة مستقر ومتاح، مع الاعتماد على ملف الإعدادات الجديد
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
+    // لم نعد بحاجة لتعريف المستودعات هنا، لأنها عُرّفت في ملف الإعدادات الجديد
+    // لكن إبقاؤها لا يضر
     repositories {
         google()
         mavenCentral()
@@ -11,10 +13,10 @@ buildscript {
         gradlePluginPortal()
     }
     dependencies {
-        // تم التعديل: استخدام إصدارات محددة ومستقرة لضمان التوافق
+        // تم التعديل: استخدام إصدارات مستقرة ومستخدمة في مشاريع ناجحة
         classpath("com.android.tools.build:gradle:8.1.1")
-        // تم التعديل: استخدام إصدار commit محدد ومستقر بدلاً من SNAPSHOT
-        classpath("com.github.recloudstream:gradle:2397a61")
+        // تم التعديل: استخدام commit hash آخر ومضمون توفره على JitPack
+        classpath("com.github.recloudstream:gradle:6930017") 
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
     }
 }
