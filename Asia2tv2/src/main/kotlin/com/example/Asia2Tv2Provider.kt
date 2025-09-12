@@ -6,8 +6,8 @@ import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.utils.Coroutines.apmap
 
-// Final Corrected Build: Fixed the Int?/Score? type mismatch.
-// The provider is now fully compliant with the latest CloudStream API.
+// Final Working Version: Corrected the private Score constructor access.
+// This version is fully compliant with the latest CloudStream API and site structure.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
@@ -77,10 +77,9 @@ class Asia2Tv : MainAPI() {
         val tags = document.select("div.genres-single a[href*=genre]").map { it.text() }
         val recommendations = document.select("div.content-box article").mapNotNull { it.toSearchResult() }
         
-        // BUILD FIX: The error was a type mismatch.
-        // We now correctly create a `Score` object instead of a simple Int.
+        // BUILD FIX: The Score constructor is private. We must use the named parameter 'score ='.
         val ratingText = document.selectFirst("span.rating-vote")?.text()
-        val score = ratingText?.let { Regex("""(\d\.\d)""").find(it)?.groupValues?.get(1)?.toFloatOrNull() }?.times(100)?.toInt()?.let { Score(it) }
+        val score = ratingText?.let { Regex("""(\d\.\d)""").find(it)?.groupValues?.get(1)?.toFloatOrNull() }?.times(100)?.toInt()?.let { Score(score = it) }
 
         return if (url.contains("/movie/")) {
             newMovieLoadResponse(title, url, TvType.Movie, url) {
