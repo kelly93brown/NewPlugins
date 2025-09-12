@@ -16,9 +16,10 @@ class Asia2Tv : MainAPI() {
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
-    // Common headers to mimic a browser
+    // Using a mobile User-Agent as requested
     private val headers = mapOf(
-        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
+        "User-Agent" to "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36",
+        "Referer" to "$mainUrl/"
     )
 
     // Data class to parse the JSON response for server iframes
@@ -27,27 +28,22 @@ class Asia2Tv : MainAPI() {
         @JsonProperty("data") val data: String
     )
 
+    // Using a more robust mainPage structure instead of scraping the homepage directly
+    override val mainPage = mainPageOf(
+        "/category/movies/افلام-اسيوية/" to "أفلام أسيوية",
+        "/category/movies/افلام-اجنبية/" to "أفلام أجنبية",
+        "/category/tvshows/مسلسلات-اسيوية/" to "مسلسلات أسيوية",
+        "/category/tvshows/مسلسلات-تركية/" to "مسلسلات تركية",
+        "/category/tvshows/مسلسلات-اجنبية/" to "مسلسلات أجنبية",
+    )
+
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        if (page > 1) return HomePageResponse(emptyList())
-
-        val document = app.get(mainUrl, headers = headers).document
-        val allhome = mutableListOf<HomePageList>()
-
-        // A more robust way to parse sections: find title, then find sibling with items
-        document.select("div.block_title").forEach { titleElement ->
-            val title = titleElement.selectFirst("h2 a")?.text() ?: return@forEach
-            // Filter out unwanted sections
-            if (title.contains("نجوم") || title.contains("أخبار")) return@forEach
-
-            // The items are usually in the next sibling element
-            val itemsContainer = titleElement.nextElementSibling()
-            val items = itemsContainer?.select("div.item")?.mapNotNull { it.toSearchResponse() }
-
-            if (!items.isNullOrEmpty()) {
-                allhome.add(HomePageList(title, items))
-            }
-        }
-        return HomePageResponse(allhome)
+        val document = app.get(mainUrl + request.data, headers = headers).document
+        val items = document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
+        
+        // Handling pagination if available
+        val hasNext = document.selectFirst("a.nextpostslink") != null
+        return newHomePageResponse(request.name, items, hasNext)
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
