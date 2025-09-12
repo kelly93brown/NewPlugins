@@ -16,7 +16,7 @@ class Asia2Tv : MainAPI() {
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
-    // Using a mobile User-Agent as requested
+    // Using a mobile User-Agent
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36",
         "Referer" to "$mainUrl/"
@@ -28,20 +28,26 @@ class Asia2Tv : MainAPI() {
         @JsonProperty("data") val data: String
     )
 
-    // Using a more robust mainPage structure instead of scraping the homepage directly
+    // Updated mainPage structure with the correct links (v5)
     override val mainPage = mainPageOf(
-        "/category/movies/افلام-اسيوية/" to "أفلام أسيوية",
-        "/category/movies/افلام-اجنبية/" to "أفلام أجنبية",
-        "/category/tvshows/مسلسلات-اسيوية/" to "مسلسلات أسيوية",
-        "/category/tvshows/مسلسلات-تركية/" to "مسلسلات تركية",
-        "/category/tvshows/مسلسلات-اجنبية/" to "مسلسلات أجنبية",
+        "/movies" to "الأفلام",
+        "/series" to "المسلسلات",
+        "/status/live" to "يبث حاليا",
+        "/status/complete" to "أعمال مكتملة"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl + request.data, headers = headers).document
+        // Append page number for pagination if it exists
+        val url = if (page > 1) {
+            mainUrl + request.data + "/page/$page/"
+        } else {
+            mainUrl + request.data
+        }
+        
+        val document = app.get(url, headers = headers).document
         val items = document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
         
-        // Handling pagination if available
+        // Check for a next page link to enable infinite scrolling
         val hasNext = document.selectFirst("a.nextpostslink") != null
         return newHomePageResponse(request.name, items, hasNext)
     }
