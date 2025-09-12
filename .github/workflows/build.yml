@@ -1,70 +1,54 @@
-# v3: Dynamic build process that automatically finds and builds all plugins.
-name: Build
+# .github/workflows/build.yml (v1)
 
+# اسم سير العمل الذي سيظهر في قسم Actions في GitHub
+name: Build and Deploy Plugins
+
+# الـ "محفز": متى سيعمل هذا الروبوت؟
 on:
   push:
+    # سيعمل فقط عند رفع أي تعديل على الفرع الرئيسي
     branches:
       - master
+  # يسمح بتشغيله يدويًا من واجهة GitHub Actions
   workflow_dispatch:
 
 jobs:
   build:
+    # سيتم تشغيل هذا العمل على أحدث نسخة من نظام Ubuntu
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # الخطوة الأولى: تحميل نسخة من الكود الخاص بك (فرع master)
+      - name: Checkout Master Branch
+        uses: actions/checkout@v3
 
-      - name: Checkout builds
-        uses: actions/checkout@v4
+      # الخطوة الثانية: إعداد بيئة جافا (JDK 11)، وهي ضرورية لتشغيل المترجم
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
         with:
-          ref: builds
-          path: builds
+          java-version: '11'
+          distribution: 'temurin'
+          cache: gradle
 
-      - name: Clean old builds
-        run: rm -f builds/*.cs3
+      # الخطوة الثالثة: إعطاء صلاحية التنفيذ لسكربت Gradle
+      - name: Grant Execute Permission to gradlew
+        run: chmod +x gradlew
 
-      - name: Sanitize builds checkout
-        run: |
-          if [[ -f "builds/build.gradle.kts" ]]; then
-            mv builds/build.gradle.kts builds/build.gradle.kts.bak
-          fi
+      # الخطوة الرابعة: تشغيل عملية البناء والتجميع الفعلية
+      # سيقوم Gradle بتجميع كل إضافة وإنشاء ملف plugins.json
+      - name: Build with Gradle
+        run: ./gradlew assemble
 
-      - name: Setup JDK 17
-        uses: actions/setup-java@v4
+      # الخطوة الخامسة: النشر في فرع builds
+      # هذه الخطوة تأخذ المخرجات النهائية وتنشرها في فرع منفصل
+      - name: Deploy to Builds Branch
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          distribution: 'zulu'
-          java-version: 17
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Build All Plugins
-        run: |
-          chmod +x ./gradlew
-          # هذا الجزء يبحث عن كل مجلد داخل "plugins" ويقوم ببنائه
-          for D in ./plugins/*; do
-            if [ -d "${D}" ]; then
-              PLUGIN_NAME=$(basename -- "${D}")
-              echo "Building plugin: ${PLUGIN_NAME}"
-              ./gradlew ":plugins:${PLUGIN_NAME}:assembleRelease" --stacktrace
-            fi
-          done
-
-      - name: Push builds
-        run: |
-          cd builds
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f --ignore-unmatch *.cs3
-          # هذا الجزء يبحث عن كل ملف .cs3 تم بناؤه حديثًا وينقله هنا
-          find ../plugins -type f -name "*.cs3" -exec mv {} . \;
-          # Verify that the files were moved
-          ls -l
-          if [[ -z $(git status -s) ]]; then
-            echo "No changes to commit"
-            exit 0
-          fi
-          git add .
-          git commit -m "Update plugins"
-          git push
+          # مفتاح سري يتم إنشاؤه تلقائيًا ليتمكن الروبوت من الرفع إلى مشروعك
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # اسم الفرع الذي سيتم نشر الملفات النهائية فيه
+          publish_branch: builds
+          # المجلد الذي يحتوي على الملفات المراد نشرها (مجلد المخرجات الافتراضي لـ Gradle)
+          publish_dir: build/cloudstream/
+          # سيقوم بحذف المحتويات القديمة للفرع قبل نشر الجديدة لضمان عدم تراكم الملفات
+          force_orphan: true
