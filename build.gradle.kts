@@ -1,6 +1,4 @@
-// v23: Final Attempt - A single, self-contained build file.
-// IMPORTANT: The settings.gradle.kts file must be deleted for this to work.
-
+// v24: The clean build file that works with the new settings.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -9,21 +7,13 @@ buildscript {
     repositories {
         google()
         mavenCentral()
-        maven("https://jitpack.io")
         gradlePluginPortal()
+        maven("https://jitpack.io")
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.1.1")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://jitpack.io")
     }
 }
 
@@ -70,7 +60,7 @@ subprojects {
         implementation(kotlin("stdlib"))
         implementation("org.jsoup:jsoup:1.17.2")
         implementation("com.github.Blatzar:NiceHttp:0.4.11")
-        
+
         implementation("androidx.core:core-ktx:1.13.1")
         implementation("androidx.appcompat:appcompat:1.6.1")
         implementation("com.google.android.material:material:1.12.0")
