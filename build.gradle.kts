@@ -1,4 +1,4 @@
-// v16: Reverting to the latest AGP and Kotlin to work with the updated Java 17 environment.
+// v17: Pinning plugin versions to a known-good, stable configuration from a working project.
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -11,11 +11,11 @@ buildscript {
         gradlePluginPortal()
     }
     dependencies {
-        // تم التعديل: استخدام أحدث إصدار متوافق مع Java 17
-        classpath("com.android.tools.build:gradle:8.5.0")
-        classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
-        // تم التعديل: استخدام أحدث إصدار متوافق
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20")
+        // تم التعديل: استخدام إصدارات محددة ومستقرة لضمان التوافق
+        classpath("com.android.tools.build:gradle:8.1.1")
+        // تم التعديل: استخدام إصدار commit محدد ومستقر بدلاً من SNAPSHOT
+        classpath("com.github.recloudstream:gradle:2397a61")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
     }
 }
 
