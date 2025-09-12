@@ -10,7 +10,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.awaitAll
 
-// v10: Complete rebuild based on user-provided HTML files.
+// v11: Hybrid approach. Combines the stable static mainPage from v9 
+// with the correct `div.postmovie` selector discovered by the user.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
@@ -23,26 +24,32 @@ class Asia2Tv : MainAPI() {
         @JsonProperty("data") val data: String
     )
 
-    // Re-implementing getMainPage to scrape dynamic sections from the homepage
+    // Using the stable static mainPage structure that we know works for displaying titles.
+    override val mainPage = mainPageOf(
+        "/movies" to "الأفلام",
+        "/series" to "المسلسلات",
+        "/status/live" to "يبث حاليا",
+        "/status/complete" to "أعمال مكتملة"
+    )
+
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl).document
-        val homePageList = mutableListOf<HomePageList>()
-
-        // Find all content blocks on the main page based on the provided HTML structure
-        document.select("div.mov-cat-d").forEach { block ->
-            val title = block.selectFirst("h2.mov-cat-d-title")?.text() ?: return@forEach
-            // The items are inside div.postmovie, which was the key discovery
-            val items = block.select("div.postmovie").mapNotNull { it.toSearchResponse() }
-            if (items.isNotEmpty()) {
-                homePageList.add(HomePageList(title, items))
-            }
+        val url = if (page > 1) {
+            "$mainUrl${request.data}/page/$page/"
+        } else {
+            "$mainUrl${request.data}"
         }
-
-        return HomePageResponse(homePageList)
+        
+        val document = app.get(url).document
+        
+        // Applying the user's key discovery: the content is inside `div.postmovie`.
+        val items = document.select("div.postmovie").mapNotNull { it.toSearchResponse() }
+        
+        val hasNext = document.selectFirst("a.nextpostslink") != null
+        return newHomePageResponse(request.name, items, hasNext)
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
-        // This function is now tailored to the `div.postmovie` structure
+        // This function is tailored to the `div.postmovie` structure
         val linkElement = this.selectFirst("a") ?: return null
         val href = fixUrl(linkElement.attr("href"))
         if (href.isBlank()) return null
@@ -66,7 +73,7 @@ class Asia2Tv : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=$query"
         val document = app.get(url).document
-        // Search results also use a similar structure, but inside article.item
+        // Search results page uses a different structure: article.item
         return document.select("article.item").mapNotNull {
             val linkElement = it.selectFirst("div.poster a") ?: return@mapNotNull null
             val href = fixUrl(linkElement.attr("href"))
@@ -114,7 +121,6 @@ class Asia2Tv : MainAPI() {
             }
         } else {
             val episodes = mutableListOf<Episode>()
-            // Episode parsing logic confirmed correct by the provided HTML
             document.select("div#seasons div.se-c").forEach { seasonElement ->
                 val seasonName = seasonElement.selectFirst("h3")?.text() ?: ""
                 val seasonNum = seasonName.filter { it.isDigit() }.toIntOrNull()
@@ -150,7 +156,6 @@ class Asia2Tv : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = app.get(data).document
-        // Server list logic confirmed correct by the provided HTML
         val serverIds = document.select("div.servers-list ul li").mapNotNull {
             it.attr("data-server").ifBlank { null }
         }
