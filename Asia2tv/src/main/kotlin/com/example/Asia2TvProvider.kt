@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.cloudstream3.utils.toRatingInt
 import org.jsoup.nodes.Element
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -76,7 +75,8 @@ class Asia2Tv : MainAPI() {
         val plot = document.selectFirst("div.story p")?.text()?.trim()
         val year = document.select("div.details ul li a[href*=release]").firstOrNull()?.text()?.toIntOrNull()
         val tags = document.select("div.details ul li a[href*=genre]").map { it.text() }
-        val rating = document.selectFirst("div.imdb span")?.text()?.toRatingInt()
+        // FIXED RATING LINE
+        val rating = document.selectFirst("div.imdb span")?.text()?.toFloatOrNull()?.times(10)?.toInt()
         val recommendations = document.select("div.related div.item").mapNotNull { it.toSearchResponse() }
 
         return if (url.contains("/movie/")) {
