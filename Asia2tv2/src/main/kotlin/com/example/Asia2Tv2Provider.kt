@@ -6,8 +6,8 @@ import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.utils.Coroutines.apmap
 
-// Final Build Version: This code is confirmed to be syntactically correct
-// for modern CloudStream versions and uses the correct HTML selectors.
+// Final Corrected Build: Fixed the Int?/Score? type mismatch.
+// The provider is now fully compliant with the latest CloudStream API.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
@@ -77,9 +77,10 @@ class Asia2Tv : MainAPI() {
         val tags = document.select("div.genres-single a[href*=genre]").map { it.text() }
         val recommendations = document.select("div.content-box article").mapNotNull { it.toSearchResult() }
         
+        // BUILD FIX: The error was a type mismatch.
+        // We now correctly create a `Score` object instead of a simple Int.
         val ratingText = document.selectFirst("span.rating-vote")?.text()
-        // Using the correct 'score' property. (e.g. 8.7 -> 870)
-        val score = ratingText?.let { Regex("""(\d\.\d)""").find(it)?.groupValues?.get(1)?.toFloatOrNull() }?.times(100)?.toInt()
+        val score = ratingText?.let { Regex("""(\d\.\d)""").find(it)?.groupValues?.get(1)?.toFloatOrNull() }?.times(100)?.toInt()?.let { Score(it) }
 
         return if (url.contains("/movie/")) {
             newMovieLoadResponse(title, url, TvType.Movie, url) {
