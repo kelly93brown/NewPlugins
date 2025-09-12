@@ -1,11 +1,9 @@
-// v18: استخدام إصدار إضافة مستقر ومتاح، مع الاعتماد على ملف الإعدادات الجديد
+// v19: العودة إلى الطريقة الرسمية (master-SNAPSHOT) بعد تصحيح هيكل المشروع
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
-    // لم نعد بحاجة لتعريف المستودعات هنا، لأنها عُرّفت في ملف الإعدادات الجديد
-    // لكن إبقاؤها لا يضر
     repositories {
         google()
         mavenCentral()
@@ -13,10 +11,10 @@ buildscript {
         gradlePluginPortal()
     }
     dependencies {
-        // تم التعديل: استخدام إصدارات مستقرة ومستخدمة في مشاريع ناجحة
+        // نستخدم إصدارات مستقرة ومتوافقة
         classpath("com.android.tools.build:gradle:8.1.1")
-        // تم التعديل: استخدام commit hash آخر ومضمون توفره على JitPack
-        classpath("com.github.recloudstream:gradle:6930017") 
+        // تم التعديل: العودة إلى الإصدار الرسمي والمستحسن من القالب الأساسي
+        classpath("com.github.recloudstream:gradle:master-SNAPSHOT") 
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
     }
 }
