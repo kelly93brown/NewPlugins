@@ -1,26 +1,21 @@
-// v21: الحل النهائي - إعادة المستودعات إلى كتلة buildscript فقط
+// v22: إعادة ضبط الإعدادات إلى القالب الرسمي
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
-    // تم التعديل: إعادة المستودعات هنا هو الإجراء الصحيح
     repositories {
         google()
         mavenCentral()
-        maven("https://jitpack.io")
         gradlePluginPortal()
+        maven("https://jitpack.io")
     }
     dependencies {
+        // استخدام إصدارات مستقرة ومجربة من القالب الرسمي
         classpath("com.android.tools.build:gradle:8.1.1")
-        classpath("com.github.recloudstream:gradle:master-SNAPSHOT") 
+        classpath("com.github.recloudstream:gradle:master-SNAPSHOT")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
     }
-}
-
-// ستبقى هذه الكتلة فارغة، وهذا صحيح
-allprojects {
-    // repositories have been moved to settings.gradle.kts
 }
 
 fun Project.cloudstream(configuration: CloudstreamExtension.() -> Unit) =
@@ -39,10 +34,8 @@ subprojects {
     }
 
     android {
-        namespace = "com.adamwolker21.${project.name}"
+        // ملاحظة: الـ namespace سيتم تحديده تلقائياً بواسطة إضافة cloudstream
         compileSdkVersion(34)
-        
-        buildFeatures.buildConfig = true
 
         defaultConfig {
             minSdk = 24
@@ -52,7 +45,7 @@ subprojects {
             sourceCompatibility = JavaVersion.VERSION_1_8
             targetCompatibility = JavaVersion.VERSION_1_8
         }
-        
+
         tasks.withType<KotlinCompile>().configureEach {
             compilerOptions {
                 jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
