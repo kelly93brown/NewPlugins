@@ -1,8 +1,10 @@
-name: Build Plugins
+# v3.1: Dynamic build process that automatically finds and builds all plugins.
+name: Build
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - master
   workflow_dispatch:
 
 jobs:
@@ -13,6 +15,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout builds
+        uses: actions/checkout@v4
+        with:
+          ref: builds
+          path: builds
+
+      - name: Clean old builds
+        run: rm -f builds/*.cs3
+
+      - name: Sanitize builds checkout
+        run: |
+          if [[ -f "builds/build.gradle.kts" ]]; then
+            mv builds/build.gradle.kts builds/build.gradle.kts.bak
+          fi
+
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -22,40 +39,32 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build Plugins
+      - name: Build All Plugins
         run: |
           chmod +x ./gradlew
-          ./gradlew build
-
-      - name: Generate plugins.json
-        run: |
-          # إنشاء plugins.json تلقائياً
-          echo '[' > plugins.json
-          for plugin in $(find . -name "*.cs3" -type f); do
-            plugin_name=$(basename $plugin .cs3)
-            echo '{
-              "name": "'$plugin_name'",
-              "version": 1,
-              "apiVersion": 1,
-              "internalName": "'$plugin_name'",
-              "url": "https://github.com/adamwolker21/TestPlugins/raw/main/'$plugin'",
-              "repositoryUrl": "https://github.com/adamwolker21/TestPlugins",
-              "language": "ar",
-              "status": 1,
-              "fileSize": '$(stat -c%s "$plugin")',
-              "authors": ["adamwolker21"],
-              "tvTypes": ["TvSeries", "Movie"],
-              "iconUrl": "https://www.google.com/s2/favicons?domain=asia2tv.com&sz=%size%"
-            },' >> plugins.json
+          # هذا الجزء يبحث عن كل مجلد داخل "plugins" ويقوم ببنائه
+          for D in ./plugins/*; do
+            if [ -d "${D}" ]; then
+              PLUGIN_NAME=$(basename -- "${D}")
+              echo "Building plugin: ${PLUGIN_NAME}"
+              ./gradlew ":plugins:${PLUGIN_NAME}:assembleRelease" --stacktrace
+            fi
           done
-          # إزالة الفاصلة الأخيرة وإغلاق المصفوفة
-          sed -i '$ s/,$//' plugins.json
-          echo ']' >> plugins.json
 
-      - name: Commit and Push
+      - name: Build Plugins
         run: |
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add *.cs3 plugins.json
-          git commit -m "Build plugins and update plugins.json" || echo "No changes to commit"
-          git push
+          cd $GITHUB_WORKSPACE/src
+          chmod +x gradlew
+          ./gradlew make makePluginsJson
+          ./gradlew ensureJarCompatibility
+          cp **/build/*.cs3 $GITHUB_WORKSPACE/builds
+          cp build/plugins.json $GITHUB_WORKSPACE/builds
+
+      - name: Push builds
+        run: |
+          cd $GITHUB_WORKSPACE/builds
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add .
+          git commit --amend -m "Build $GITHUB_SHA" || exit 0   # do not error if nothing to commit
+          git push --force
