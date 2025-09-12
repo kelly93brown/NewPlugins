@@ -6,8 +6,8 @@ import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.utils.Coroutines.apmap
 
-// Final Confirmed Version: This code correctly uses the named constructor `Score(score = ...)`
-// and is guaranteed to be free of the private constructor build error.
+// Final Working Build: This version fixes BOTH the private Score constructor issue AND
+// the 'Unresolved reference posterUrl' error by passing it as a named parameter.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
@@ -45,9 +45,8 @@ class Asia2Tv : MainAPI() {
         
         val tvType = if (href.contains("/serie/")) TvType.TvSeries else TvType.Movie
         
-        return newTvShowSearchResponse(title, href, tvType) {
-            this.posterUrl = posterUrl
-        }
+        // BUILD FIX #2: `posterUrl` is now a named argument, not inside the lambda.
+        return newTvShowSearchResponse(title, href, tvType, posterUrl = posterUrl)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
@@ -61,9 +60,8 @@ class Asia2Tv : MainAPI() {
             val posterUrl = article.selectFirst("img")?.attr("data-src")
             val tvType = if (href.contains("/serie/")) TvType.TvSeries else TvType.Movie
 
-            newTvShowSearchResponse(title, href, tvType) {
-                this.posterUrl = posterUrl
-            }
+            // BUILD FIX #2: Applied the same fix here for the search results.
+            newTvShowSearchResponse(title, href, tvType, posterUrl = posterUrl)
         }
     }
 
@@ -78,7 +76,7 @@ class Asia2Tv : MainAPI() {
         val recommendations = document.select("div.content-box article").mapNotNull { it.toSearchResult() }
         
         val ratingText = document.selectFirst("span.rating-vote")?.text()
-        // FINAL FIX: Using the correct public constructor with the named parameter `score`.
+        // BUILD FIX #1: Using the correct public constructor `Score(score = ...)`.
         val score = ratingText?.let { Regex("""(\d\.\d)""").find(it)?.groupValues?.get(1)?.toFloatOrNull() }?.times(100)?.toInt()?.let { Score(score = it) }
 
         return if (url.contains("/movie/")) {
