@@ -1,26 +1,19 @@
-// v24: The real and final fix. Including the subprojects is the critical step.
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-        maven("https://jitpack.io")
-    }
-}
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://jitpack.io")
+rootProject.name = "CloudstreamPlugins"
+
+// This file sets what projects are included. All new projects should get automatically included unless specified in "disabled" variable.
+
+val disabled = listOf<String>()
+
+File(rootDir, ".").eachDir { dir ->
+    if (!disabled.contains(dir.name) && File(dir, "build.gradle.kts").exists()) {
+        include(dir.name)
     }
 }
 
-rootProject.name = "TestPlugins"
+fun File.eachDir(block: (File) -> Unit) {
+    listFiles()?.filter { it.isDirectory }?.forEach { block(it) }
+}
 
-// This is the most important line. It tells Gradle that "ExampleProvider" is a subproject.
-include(":ExampleProvider")
 
-// If you add more plugins in the future, add them here like this:
-// include(":AnotherProvider")
-// include(":SomeOtherPlugin")
+// To only include a single project, comment out the previous lines (except the first one), and include your plugin like so:
+// include("PluginName")
