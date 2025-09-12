@@ -1,10 +1,16 @@
-// v20: التنظيف النهائي وإزالة المستودعات المكررة
+// v21: الحل النهائي - إعادة المستودعات إلى كتلة buildscript فقط
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
-    // تم الحذف: لم نعد بحاجة لتعريف المستودعات هنا لأنها معرفة في settings.gradle.kts
+    // تم التعديل: إعادة المستودعات هنا هو الإجراء الصحيح
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
+        gradlePluginPortal()
+    }
     dependencies {
         classpath("com.android.tools.build:gradle:8.1.1")
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT") 
@@ -12,8 +18,9 @@ buildscript {
     }
 }
 
+// ستبقى هذه الكتلة فارغة، وهذا صحيح
 allprojects {
-    // تم الحذف: لم نعد بحاجة لتعريف المستودعات هنا لأنها معرفة في settings.gradle.kts
+    // repositories have been moved to settings.gradle.kts
 }
 
 fun Project.cloudstream(configuration: CloudstreamExtension.() -> Unit) =
