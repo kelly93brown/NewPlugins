@@ -10,15 +10,15 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.awaitAll
 
-class Asia2TvProvider : MainAPI() { // Renamed class to follow convention
+// v9 Fix: Reverted class name to match the directory name as expected by the build system.
+class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
     override var lang = "ar"
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
-    // v8 Fix: Removed custom headers to let CloudStream's smart HTTP client handle requests
-    // This is the most critical fix to bypass site protections.
+    // Critical fix from v8: Removed custom headers to let CloudStream's smart HTTP client handle requests.
 
     data class PlayerResponse(
         @JsonProperty("success") val success: Boolean,
@@ -41,7 +41,7 @@ class Asia2TvProvider : MainAPI() { // Renamed class to follow convention
         
         val document = app.get(url).document
         
-        // Site uses <article class="item"> for content
+        // Site uses <article class="item"> for content listings.
         val items = document.select("div.items article.item").mapNotNull { it.toSearchResponse() }
         
         val hasNext = document.selectFirst("a.nextpostslink") != null
@@ -97,7 +97,7 @@ class Asia2TvProvider : MainAPI() { // Renamed class to follow convention
                 this.recommendations = recommendations
             }
         } else {
-            // v8 Fix: Completely rewrote episode parsing logic based on correct site structure
+            // Corrected episode parsing logic from v8
             val episodes = mutableListOf<Episode>()
             document.select("div#seasons div.se-c").forEach { seasonElement ->
                 val seasonName = seasonElement.selectFirst("h3")?.text() ?: ""
@@ -139,7 +139,6 @@ class Asia2TvProvider : MainAPI() { // Renamed class to follow convention
         }
 
         val ajaxUrl = "$mainUrl/wp-admin/admin-ajax.php"
-        // v8 Fix: Only add the required Referer header, don't override other smart headers
         val ajaxHeaders = mapOf("Referer" to data)
 
         coroutineScope {
