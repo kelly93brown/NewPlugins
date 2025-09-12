@@ -1,4 +1,4 @@
-# v3.1: Dynamic build process that automatically finds and builds all plugins.
+# v3: Dynamic build process that automatically finds and builds all plugins.
 name: Build
 
 on:
@@ -51,20 +51,20 @@ jobs:
             fi
           done
 
-      - name: Build Plugins
-        run: |
-          cd $GITHUB_WORKSPACE/src
-          chmod +x gradlew
-          ./gradlew make makePluginsJson
-          ./gradlew ensureJarCompatibility
-          cp **/build/*.cs3 $GITHUB_WORKSPACE/builds
-          cp build/plugins.json $GITHUB_WORKSPACE/builds
-
       - name: Push builds
         run: |
-          cd $GITHUB_WORKSPACE/builds
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions"
+          cd builds
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f --ignore-unmatch *.cs3
+          # هذا الجزء يبحث عن كل ملف .cs3 تم بناؤه حديثًا وينقله هنا
+          find ../plugins -type f -name "*.cs3" -exec mv {} . \;
+          # Verify that the files were moved
+          ls -l
+          if [[ -z $(git status -s) ]]; then
+            echo "No changes to commit"
+            exit 0
+          fi
           git add .
-          git commit --amend -m "Build $GITHUB_SHA" || exit 0   # do not error if nothing to commit
-          git push --force
+          git commit -m "Update plugins"
+          git push
