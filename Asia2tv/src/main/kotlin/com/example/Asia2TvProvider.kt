@@ -10,7 +10,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.awaitAll
 
-// v9 Fix: Reverted class name to match the directory name as expected by the build system.
+// v10: Complete rebuild based on user-provided HTML files.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
@@ -18,54 +18,46 @@ class Asia2Tv : MainAPI() {
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
-    // Critical fix from v8: Removed custom headers to let CloudStream's smart HTTP client handle requests.
-
     data class PlayerResponse(
         @JsonProperty("success") val success: Boolean,
         @JsonProperty("data") val data: String
     )
 
-    override val mainPage = mainPageOf(
-        "/movies" to "الأفلام",
-        "/series" to "المسلسلات",
-        "/status/live" to "يبث حاليا",
-        "/status/complete" to "أعمال مكتملة"
-    )
-
+    // Re-implementing getMainPage to scrape dynamic sections from the homepage
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (page > 1) {
-            "$mainUrl${request.data}/page/$page/"
-        } else {
-            "$mainUrl${request.data}"
+        val document = app.get(mainUrl).document
+        val homePageList = mutableListOf<HomePageList>()
+
+        // Find all content blocks on the main page based on the provided HTML structure
+        document.select("div.mov-cat-d").forEach { block ->
+            val title = block.selectFirst("h2.mov-cat-d-title")?.text() ?: return@forEach
+            // The items are inside div.postmovie, which was the key discovery
+            val items = block.select("div.postmovie").mapNotNull { it.toSearchResponse() }
+            if (items.isNotEmpty()) {
+                homePageList.add(HomePageList(title, items))
+            }
         }
-        
-        val document = app.get(url).document
-        
-        // Site uses <article class="item"> for content listings.
-        val items = document.select("div.items article.item").mapNotNull { it.toSearchResponse() }
-        
-        val hasNext = document.selectFirst("a.nextpostslink") != null
-        return newHomePageResponse(request.name, items, hasNext)
+
+        return HomePageResponse(homePageList)
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
-        val linkElement = this.selectFirst("div.poster a") ?: return null
+        // This function is now tailored to the `div.postmovie` structure
+        val linkElement = this.selectFirst("a") ?: return null
         val href = fixUrl(linkElement.attr("href"))
         if (href.isBlank()) return null
 
-        val title = this.selectFirst("div.data h3 a")?.text() ?: return null
-        val posterUrl = this.selectFirst("div.poster img")?.let {
+        val title = this.selectFirst("h3.postmovie-title a")?.text() ?: return null
+        val posterUrl = this.selectFirst("img")?.let {
             it.attr("data-src").ifBlank { it.attr("src") }
         }
 
-        val type = if (href.contains("/movie/")) TvType.Movie else TvType.TvSeries
-
-        return if (type == TvType.Movie) {
-            newMovieSearchResponse(title, href, type) {
+        return if (href.contains("/movie/")) {
+            newMovieSearchResponse(title, href) {
                 this.posterUrl = posterUrl
             }
         } else {
-            newTvSeriesSearchResponse(title, href, type) {
+            newTvSeriesSearchResponse(title, href) {
                 this.posterUrl = posterUrl
             }
         }
@@ -74,7 +66,19 @@ class Asia2Tv : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=$query"
         val document = app.get(url).document
-        return document.select("div.items article.item").mapNotNull { it.toSearchResponse() }
+        // Search results also use a similar structure, but inside article.item
+        return document.select("article.item").mapNotNull {
+            val linkElement = it.selectFirst("div.poster a") ?: return@mapNotNull null
+            val href = fixUrl(linkElement.attr("href"))
+            val title = it.selectFirst("div.data h3 a")?.text() ?: return@mapNotNull null
+            val posterUrl = it.selectFirst("img")?.attr("data-src")
+
+            if (href.contains("/movie/")) {
+                newMovieSearchResponse(title, href) { this.posterUrl = posterUrl }
+            } else {
+                newTvSeriesSearchResponse(title, href) { this.posterUrl = posterUrl }
+            }
+        }
     }
 
     override suspend fun load(url: String): LoadResponse? {
@@ -82,10 +86,22 @@ class Asia2Tv : MainAPI() {
         val title = document.selectFirst("div.data h1")?.text()?.trim() ?: return null
         val poster = document.selectFirst("div.poster img")?.attr("src")
         val plot = document.selectFirst("div.story p")?.text()?.trim()
-        val year = document.select("div.details ul li a[href*=release]").firstOrNull()?.text()?.toIntOrNull()
-        val tags = document.select("div.details ul li a[href*=genre]").map { it.text() }
+        val year = document.select("div.details ul.meta li:contains(سنة) a")?.text()?.toIntOrNull()
+        val tags = document.select("div.details ul.meta li:contains(النوع) a").map { it.text() }
         val rating = document.selectFirst("div.imdb span")?.text()?.toFloatOrNull()?.times(10)?.toInt()
-        val recommendations = document.select("div.related div.items article.item").mapNotNull { it.toSearchResponse() }
+        val recommendations = document.select("div.related div.items article.item").mapNotNull {
+            val linkElement = it.selectFirst("div.poster a") ?: return@mapNotNull null
+            val href = fixUrl(linkElement.attr("href"))
+            val recTitle = it.selectFirst("div.data h3 a")?.text() ?: return@mapNotNull null
+            val recPosterUrl = it.selectFirst("img")?.attr("data-src")
+
+            if (href.contains("/movie/")) {
+                newMovieSearchResponse(recTitle, href) { this.posterUrl = recPosterUrl }
+            } else {
+                newTvSeriesSearchResponse(recTitle, href) { this.posterUrl = recPosterUrl }
+            }
+        }
+
 
         return if (url.contains("/movie/")) {
             newMovieLoadResponse(title, url, TvType.Movie, url) {
@@ -97,8 +113,8 @@ class Asia2Tv : MainAPI() {
                 this.recommendations = recommendations
             }
         } else {
-            // Corrected episode parsing logic from v8
             val episodes = mutableListOf<Episode>()
+            // Episode parsing logic confirmed correct by the provided HTML
             document.select("div#seasons div.se-c").forEach { seasonElement ->
                 val seasonName = seasonElement.selectFirst("h3")?.text() ?: ""
                 val seasonNum = seasonName.filter { it.isDigit() }.toIntOrNull()
@@ -134,6 +150,7 @@ class Asia2Tv : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = app.get(data).document
+        // Server list logic confirmed correct by the provided HTML
         val serverIds = document.select("div.servers-list ul li").mapNotNull {
             it.attr("data-server").ifBlank { null }
         }
@@ -163,7 +180,7 @@ class Asia2Tv : MainAPI() {
                             }
                         }
                     } catch (_: Exception) {
-                        // Suppress exceptions to allow other servers to load
+                        // Suppress exceptions
                     }
                 }
             }.awaitAll()
