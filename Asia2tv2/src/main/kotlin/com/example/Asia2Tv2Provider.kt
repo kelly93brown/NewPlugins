@@ -1,16 +1,13 @@
 package com.example
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import org.jsoup.nodes.Element
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.awaitAll
+import com.lagradost.cloudstream3.utils.Coroutines.apmap
 
-// Final Build-Fixed Version: Replaced the deprecated 'rating' property with the new 'score' property.
+// Final Stable Version: Separated parsing logic for search results and main pages
+// to ensure stability and fix the compilation issue.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
@@ -20,6 +17,7 @@ class Asia2Tv : MainAPI() {
     
     override val mainPage = mainPageOf(
         "/" to "الصفحة الرئيسية",
+        "/newepisode" to "أحدث الحلقات",
         "/movies" to "الأفلام",
         "/series" to "المسلسلات",
         "/status/live" to "يبث حاليا",
@@ -30,12 +28,17 @@ class Asia2Tv : MainAPI() {
         val url = if (page > 1) "$mainUrl${request.data}page/$page/" else "$mainUrl${request.data}"
         val document = app.get(url).document
 
-        val items = document.select("article, div.postmovie").mapNotNull { it.toSearchResponse() }
+        // This selector correctly handles both homepage (article) and category pages (div.postmovie).
+        val items = document.select("article, div.postmovie").mapNotNull {
+            it.toSearchResult()
+        }
         
         return newHomePageResponse(request.name, items)
     }
 
-    private fun Element.toSearchResponse(): SearchResponse? {
+    // This function is now specialized for the MAIN PAGE and CATEGORY PAGES ONLY.
+    private fun Element.toSearchResult(): SearchResponse? {
+        // This selector is robust for both structures as confirmed by HTML files.
         val linkElement = this.selectFirst("h3.post-box-title a, h4 > a") ?: return null
         val href = fixUrl(linkElement.attr("href"))
         val title = linkElement.text()
@@ -53,7 +56,21 @@ class Asia2Tv : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=$query"
         val document = app.get(url).document
-        return document.select("article").mapNotNull { it.toSearchResponse() }
+        
+        // STABILITY FIX: Search results have their own unique structure.
+        // We parse it here directly instead of reusing the main page parser.
+        return document.select("article").mapNotNull { article ->
+            // The selector for title/link is different on the search page.
+            val linkElement = article.selectFirst("h3.post-box-title a") ?: return@mapNotNull null
+            val href = fixUrl(linkElement.attr("href"))
+            val title = linkElement.text()
+            val posterUrl = article.selectFirst("img")?.attr("data-src")
+            val tvType = if (href.contains("/serie/")) TvType.TvSeries else TvType.Movie
+
+            newTvShowSearchResponse(title, href, tvType) {
+                this.posterUrl = posterUrl
+            }
+        }
     }
 
     override suspend fun load(url: String): LoadResponse? {
@@ -64,38 +81,24 @@ class Asia2Tv : MainAPI() {
         val plot = document.selectFirst("div.story")?.text()?.trim()
         val year = document.select("ul.info li:contains(سنة الإنتاج) a").text().toIntOrNull()
         val tags = document.select("div.genres-single a[href*=genre]").map { it.text() }
-        val recommendations = document.select("div.content-box article").mapNotNull { it.toSearchResponse() }
+        val recommendations = document.select("div.content-box article").mapNotNull { it.toSearchResult() }
         
-        // BUILD FIX: The 'rating' property is deprecated. Replaced with 'score'.
-        // The score system is out of 1000, so we multiply by 100. (e.g., 8.7 -> 870)
         val ratingText = document.selectFirst("span.rating-vote")?.text()
         val score = ratingText?.let { Regex("""(\d\.\d)""").find(it)?.groupValues?.get(1)?.toFloatOrNull() }?.times(100)?.toInt()
 
-
         return if (url.contains("/movie/")) {
             newMovieLoadResponse(title, url, TvType.Movie, url) {
-                this.posterUrl = poster
-                this.year = year
-                this.plot = plot
-                this.tags = tags
-                this.score = score // <-- FIXED
-                this.recommendations = recommendations
+                this.posterUrl = poster; this.year = year; this.plot = plot; this.tags = tags; this.score = score; this.recommendations = recommendations
             }
         } else {
             val episodes = document.select("div#DivEpisodes a").mapNotNull {
                 val epName = it.text()
                 val epUrl = it.attr("data-url").ifBlank { return@mapNotNull null }
-                
                 newEpisode(epUrl) { this.name = epName }
             }.reversed()
 
             newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
-                this.posterUrl = poster
-                this.year = year
-                this.plot = plot
-                this.tags = tags
-                this.score = score // <-- FIXED
-                this.recommendations = recommendations
+                this.posterUrl = poster; this.year = year; this.plot = plot; this.tags = tags; this.score = score; this.recommendations = recommendations
             }
         }
     }
@@ -108,6 +111,7 @@ class Asia2Tv : MainAPI() {
     ): Boolean {
         val document = app.get(data).document
         
+        // Using apmap for efficient, parallel extraction of links.
         document.select("iframe").apmap { iframe ->
             val iframeSrc = iframe.attr("src")
             if (iframeSrc.isNotBlank()) {
