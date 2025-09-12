@@ -28,7 +28,7 @@ class Asia2Tv : MainAPI() {
         @JsonProperty("data") val data: String
     )
 
-    // Updated mainPage structure with the correct links (v5)
+    // Correct mainPage structure with the right links
     override val mainPage = mainPageOf(
         "/movies" to "الأفلام",
         "/series" to "المسلسلات",
@@ -37,7 +37,6 @@ class Asia2Tv : MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        // Append page number for pagination if it exists
         val url = if (page > 1) {
             mainUrl + request.data + "/page/$page/"
         } else {
@@ -45,9 +44,10 @@ class Asia2Tv : MainAPI() {
         }
         
         val document = app.get(url, headers = headers).document
-        val items = document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
         
-        // Check for a next page link to enable infinite scrolling
+        // More specific selector to target the main content area (v6 fix)
+        val items = document.select("div.main-content div.item").mapNotNull { it.toSearchResponse() }
+        
         val hasNext = document.selectFirst("a.nextpostslink") != null
         return newHomePageResponse(request.name, items, hasNext)
     }
@@ -76,7 +76,7 @@ class Asia2Tv : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=$query"
         val document = app.get(url, headers = headers).document
-        return document.select("div.items div.item").mapNotNull { it.toSearchResponse() }
+        return document.select("div.main-content div.item").mapNotNull { it.toSearchResponse() }
     }
 
     override suspend fun load(url: String): LoadResponse? {
