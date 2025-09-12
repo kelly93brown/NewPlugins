@@ -1,6 +1,4 @@
-# This workflow will build a Java project with Gradle and cache dependencies
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-gradle
-
+# This workflow will build the Cloudstream plugins and deploy them.
 name: Build with Gradle
 
 # Controls when the workflow will run
@@ -15,15 +13,16 @@ jobs:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
     
-    # تم التعديل: إضافة صلاحيات للكتابة في المستودع لنشر الملفات
+    # Granting write permissions to the workflow token to push to the builds branch
     permissions:
       contents: write
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      # 1. Checks-out your repository under $GITHUB_WORKSPACE
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # Set up JDK 17
+      # 2. Set up JDK 17, which is required by the latest Android Gradle Plugin
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -31,34 +30,42 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # Grant execute permission for gradlew
+      # 3. Grant execute permission for the Gradle wrapper
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Build with Gradle
+      # 4. Build the plugins using the correct 'buildPlugin' task
+      # تم التعديل: استخدام أمر buildPlugin بدلاً من build لإنشاء الملفات المطلوبة
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew buildPlugin --stacktrace
 
-      # --- الخطوات الجديدة لنشر الملفات ---
+      # 5. Deploy the generated plugin files to the 'builds' branch
       - name: Deploy to builds branch
-        # هذه الخطوة تعمل فقط عند الرفع على فرع master
+        # This step runs only on pushes to the master branch, not on pull requests
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
-          # 1. تهيئة Git بمعلومات البوت
+          # Configure git with bot user credentials
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # 2. استنساخ فرع builds في مجلد منفصل
-          git clone --quiet --branch=builds "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" builds
-
-          # 3. نسخ الملفات الناتجة من عملية البناء إلى المجلد الجديد
-          cp -r build/cloudstream_plugins/* builds/
+          # Clone the builds branch into a 'builds' directory
+          git clone --quiet --branch=builds "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" builds
           
-          # 4. الدخول للمجلد وعمل Commit و Push للتغييرات
+          # Change directory to the builds clone
           cd builds
+          
+          # Remove old files to ensure a clean slate
+          # This is optional but good practice
+          rm -rf ./*
+          
+          # Copy the newly built plugins from the project's build output directory
+          cp -r ../build/cloudstream_plugins/* .
+          
+          # Add all new files, commit them, and push to the remote builds branch
           git add -A
+          # Check if there are any changes to commit
           if ! git diff-index --quiet HEAD; then
-            git commit -m "Deploy plugins from ${{ github.sha }}"
+            git commit -m "Deploy plugins from commit ${{ github.sha }}"
             git push
           else
             echo "No changes to deploy."
