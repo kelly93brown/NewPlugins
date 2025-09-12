@@ -1,30 +1,19 @@
-// v19: العودة إلى الطريقة الرسمية (master-SNAPSHOT) بعد تصحيح هيكل المشروع
+// v20: التنظيف النهائي وإزالة المستودعات المكررة
 import com.android.build.gradle.BaseExtension
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://jitpack.io")
-        gradlePluginPortal()
-    }
+    // تم الحذف: لم نعد بحاجة لتعريف المستودعات هنا لأنها معرفة في settings.gradle.kts
     dependencies {
-        // نستخدم إصدارات مستقرة ومتوافقة
         classpath("com.android.tools.build:gradle:8.1.1")
-        // تم التعديل: العودة إلى الإصدار الرسمي والمستحسن من القالب الأساسي
         classpath("com.github.recloudstream:gradle:master-SNAPSHOT") 
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
     }
 }
 
 allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://jitpack.io")
-    }
+    // تم الحذف: لم نعد بحاجة لتعريف المستودعات هنا لأنها معرفة في settings.gradle.kts
 }
 
 fun Project.cloudstream(configuration: CloudstreamExtension.() -> Unit) =
