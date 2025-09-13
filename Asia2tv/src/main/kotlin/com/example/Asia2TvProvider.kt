@@ -59,19 +59,17 @@ class Asia2Tv : MainAPI() {
                     homePageList.add(HomePageList("أحدث المحتوى", allItems))
                 }
             }
+            
+            return HomePageResponse(homePageList)
         } else {
             // للصفحات الأخرى
             val items = document.select("div.postmovie, article.post, div.video-block").mapNotNull { 
                 it.toSearchResponse() 
             }
             
-            if (items.isNotEmpty()) {
-                homePageList.add(HomePageList(request.name, items))
-            }
+            val hasNext = document.selectFirst("a.next, a.page-link:contains(التالي)") != null
+            return newHomePageResponse(request.name, items, hasNext)
         }
-        
-        val hasNext = document.selectFirst("a.next, a.page-link:contains(التالي)") != null
-        return newHomePageResponse(request.name, homePageList, hasNext)
     }
     
     private fun Element.toSearchResponse(): SearchResponse? {
