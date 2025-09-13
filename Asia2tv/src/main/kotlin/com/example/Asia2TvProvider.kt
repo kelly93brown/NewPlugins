@@ -8,18 +8,14 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.awaitAll
 
-// v15: Final, simplified, and correct implementation based on all findings.
-// This version uses a single, smart `getMainPage` to handle both the main page and category pages.
 class Asia2Tv : MainAPI() {
     override var name = "Asia2Tv"
     override var mainUrl = "https://asia2tv.com"
     override var lang = "ar"
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
-
-    // Static list of categories, which acts as the main navigation.
     override val mainPage = mainPageOf(
-        "/" to "الرئيسية",
+        "/" to "الصفحة الرئيسية",
         "/movies" to "الأفلام",
         "/series" to "المسلسلات",
         "/status/live" to "يبث حاليا",
@@ -28,87 +24,98 @@ class Asia2Tv : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page > 1) {
-            "$mainUrl${request.data}page/$page/"
+            "$mainUrl${request.data.removeSuffix("/")}/page/$page/"
         } else {
             "$mainUrl${request.data}"
         }
-        val document = app.get(url).document
+        
+        val document = app.get(url, headers = getHeaders()).document
 
-        // This is the core logic: we check which type of page we are on.
         if (request.data == "/") {
-            // Logic for the TRUE main page (based on Asia2tv.com.html)
             val homePageList = mutableListOf<HomePageList>()
-            document.select("div.mov-cat-d").forEach { block ->
-                val title = block.selectFirst("h2.mov-cat-d-title")?.text() ?: return@forEach
-                val items = block.select("article").mapNotNull { it.toSearchResponse(true) }
+            document.select("div.section-title").forEach { section ->
+                val title = section.text().trim()
+                val container = section.nextElementSibling()?.selectFirst("div.video-block-container")
+                val items = container?.select("div.video-block")?.mapNotNull { it.toSearchResponse() } ?: emptyList()
                 if (items.isNotEmpty()) {
                     homePageList.add(HomePageList(title, items))
                 }
             }
             return HomePageResponse(homePageList)
         } else {
-            // Logic for CATEGORY pages (based on status live.html)
-            val items = document.select("div.postmovie").mapNotNull { it.toSearchResponse(false) }
-            return newHomePageResponse(request.name, items, true) // Assuming pagination exists
+            val items = document.select("div.video-block").mapNotNull { it.toSearchResponse() }
+            val hasNext = document.selectFirst("a.next") != null
+            return newHomePageResponse(request.name, items, hasNext)
         }
     }
     
-    // A single, smart helper function to parse items from ANY page.
-    private fun Element.toSearchResponse(isHomePage: Boolean): SearchResponse? {
-        val linkElement: Element?
-        val title: String?
-        
-        if (isHomePage) {
-            // Selectors for the main page <article> structure
-            linkElement = this.selectFirst("h3.post-box-title a")
-            title = linkElement?.text()
+    private fun Element.toSearchResponse(): SearchResponse? {
+        val link = this.selectFirst("a")?.attr("href")?.let { fixUrl(it) } ?: return null
+        val title = this.selectFirst("div.video-details h2")?.text()?.trim() ?: return null
+        val poster = this.selectFirst("img")?.attr("src") ?: ""
+        val type = if (link.contains("/movie/")) TvType.Movie else TvType.TvSeries
+
+        return if (type == TvType.Movie) {
+            newMovieSearchResponse(title, link) {
+                this.posterUrl = poster
+            }
         } else {
-            // Selectors for the category page <div.postmovie> structure
-            linkElement = this.selectFirst("h4 > a")
-            title = linkElement?.text()
-        }
-
-        val href = linkElement?.attr("href")?.let { fixUrl(it) } ?: return null
-        if (title.isNullOrBlank()) return null
-
-        val posterUrl = this.selectFirst("img")?.attr("data-src")
-
-        return if (href.contains("/movie/")) {
-            newMovieSearchResponse(title, href) { this.posterUrl = posterUrl }
-        } else {
-            newTvSeriesSearchResponse(title, href) { this.posterUrl = posterUrl }
+            newTvSeriesSearchResponse(title, link) {
+                this.posterUrl = poster
+            }
         }
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/?s=$query"
-        val document = app.get(url).document
-        // Search results use the category page structure.
-        return document.select("div.postmovie").mapNotNull { it.toSearchResponse(false) }
+        val url = "$mainUrl/?s=${query.encodeToUrl()}"
+        val document = app.get(url, headers = getHeaders()).document
+        return document.select("div.video-block").mapNotNull { it.toSearchResponse() }
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        val document = app.get(url).document
-        val title = document.selectFirst("h1.name")?.text()?.trim() ?: return null
-        val poster = document.selectFirst("div.poster img")?.attr("src")
-        val plot = document.selectFirst("div.story")?.text()?.trim()
-        val year = document.selectFirst("div.extra-info span:contains(سنة) a")?.text()?.toIntOrNull()
-        val tags = document.select("div.extra-info span:contains(النوع) a").map { it.text() }
+        val document = app.get(url, headers = getHeaders(url)).document
+        
+        // Extract basic information
+        val title = document.selectFirst("div.video-details h1")?.text()?.trim() ?: return null
+        val poster = document.selectFirst("div.video-img img")?.attr("src") ?: ""
+        val description = document.selectFirst("div.video-desc p")?.text()?.trim() ?: ""
+        
+        // Extract additional metadata
+        val year = document.select("div.video-details p:contains(سنة)").firstOrNull()?.text()?.replace("سنة الإنتاج:", "")?.trim()?.toIntOrNull()
+        val tags = document.select("div.video-details p:contains(النوع) a").map { it.text().trim() }
+        val statusText = document.selectFirst("span.status")?.text()?.trim() ?: ""
+        val isCompleted = statusText.contains("مكتمل") || statusText.contains("مكتملة")
 
-        return if (url.contains("/movie/")) {
+        // Determine content type
+        val isMovie = url.contains("/movie/") || document.selectFirst("div.video-details p:contains(نوع) a:contains(فيلم)") != null
+        
+        return if (isMovie) {
             newMovieLoadResponse(title, url, TvType.Movie, url) {
-                this.posterUrl = poster; this.year = year; this.plot = plot; this.tags = tags
+                this.posterUrl = poster
+                this.plot = description
+                this.year = year
+                this.tags = tags
             }
         } else {
-            val episodes = document.select("div#DivEpisodes a").mapNotNull { epElement ->
-                val epHref = epElement.attr("data-url")
-                if (epHref.isBlank()) return@mapNotNull null
-                val epName = epElement.text().trim()
-                val epNum = epName.filter { it.isDigit() }.toIntOrNull()
-                newEpisode(epHref) { this.name = epName; this.episode = epNum }
+            // Extract episodes
+            val episodes = document.select("div.video-episodes a").mapNotNull { episodeElement ->
+                val episodeUrl = fixUrl(episodeElement.attr("href"))
+                val episodeTitle = episodeElement.text().trim()
+                val episodeNumber = extractEpisodeNumber(episodeTitle)
+                
+                newEpisode(episodeUrl) {
+                    this.name = episodeTitle
+                    this.episode = episodeNumber
+                    this.season = 1 // Default season, can be improved
+                }
             }
-            newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes.reversed()) {
-                this.posterUrl = poster; this.year = year; this.plot = plot; this.tags = tags
+            
+            newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
+                this.posterUrl = poster
+                this.plot = description
+                this.year = year
+                this.tags = tags
+                this.status = if (isCompleted) ShowStatus.Completed else ShowStatus.Ongoing
             }
         }
     }
@@ -119,19 +126,59 @@ class Asia2Tv : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = app.get(data).document
-        val iframes = document.select("iframe")
-
+        val document = app.get(data, headers = getHeaders(data)).document
+        
+        // Extract server links from the video server buttons
+        val serverElements = document.select("div.video-server button")
+        
         coroutineScope {
-            iframes.map { iframe ->
+            serverElements.map { serverButton ->
                 async {
-                    val iframeSrc = fixUrl(iframe.attr("src"))
-                    if (iframeSrc.isNotBlank()) {
-                        loadExtractor(iframeSrc, data, subtitleCallback, callback)
+                    val serverName = serverButton.text().trim()
+                    val serverUrl = serverButton.attr("data-url")
+                    
+                    if (serverUrl.isNotBlank()) {
+                        val fullUrl = fixUrl(serverUrl)
+                        loadExtractor(fullUrl, data, subtitleCallback, callback, serverName)
                     }
                 }
             }.awaitAll()
         }
+        
         return true
+    }
+    
+    private fun getHeaders(referer: String = mainUrl): Map<String, String> {
+        return mapOf(
+            "Referer" to referer,
+            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language" to "ar,en-US;q=0.7,en;q=0.3",
+            "Accept-Encoding" to "gzip, deflate",
+            "Connection" to "keep-alive",
+            "Upgrade-Insecure-Requests" to "1"
+        )
+    }
+    
+    private fun extractEpisodeNumber(title: String): Int? {
+        val patterns = listOf(
+            Regex("الحلقة\\s+(\\d+)"),
+            Regex("Episode\\s+(\\d+)"),
+            Regex("E(\\d+)"),
+            Regex("(\\d+)")
+        )
+        
+        for (pattern in patterns) {
+            val match = pattern.find(title)
+            if (match != null) {
+                return match.groupValues[1].toIntOrNull()
+            }
+        }
+        
+        return null
+    }
+    
+    private fun String.encodeToUrl(): String {
+        return this.replace(" ", "+")
     }
 }
