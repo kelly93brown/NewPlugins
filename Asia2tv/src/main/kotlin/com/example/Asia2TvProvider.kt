@@ -15,11 +15,11 @@ class Asia2Tv : MainAPI() {
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
     override val mainPage = mainPageOf(
-        "/" to "الصفحة الرئيسية",
-        "/movies" to "الأفلام",
-        "/series" to "المسلسلات",
+        "/newepisode" to "الحلقات الجديدة",
         "/status/live" to "يبث حاليا",
-        "/status/complete" to "أعمال مكتملة"
+        "/status/complete" to "أعمال مكتملة",
+        "/series" to "المسلسلات",
+        "/movies" to "الأفلام"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
@@ -31,46 +31,37 @@ class Asia2Tv : MainAPI() {
         
         val document = app.get(url, headers = getHeaders()).document
 
-        if (request.data == "/") {
-            // نهج مختلف لاستخراج المحتوى من الصفحة الرئيسية
-            val homePageList = mutableListOf<HomePageList>()
-            
-            // البحث عن جميع الأقسام في الصفحة الرئيسية
-            val sections = document.select("div.section")
-            
-            if (sections.isNotEmpty()) {
-                sections.forEach { section ->
-                    val titleElement = section.selectFirst("h2.section-title, div.section-title")
-                    val title = titleElement?.text()?.trim() ?: "غير مصنف"
-                    
-                    val items = section.select("div.video-block").mapNotNull { 
-                        it.toSearchResponseFromVideoBlock()
-                    }
-                    
-                    if (items.isNotEmpty()) {
-                        homePageList.add(HomePageList(title, items))
-                    }
-                }
-            } else {
-                // إذا لم نجد أقسامًا، نبحث عن المحتوى مباشرة
-                val allItems = document.select("div.video-block").mapNotNull { 
-                    it.toSearchResponseFromVideoBlock() 
+        // نهج مختلف لاستخراج المحتوى من الصفحة الرئيسية
+        val homePageList = mutableListOf<HomePageList>()
+        
+        // البحث عن جميع الأقسام في الصفحة
+        val sections = document.select("div.section")
+        
+        if (sections.isNotEmpty()) {
+            sections.forEach { section ->
+                val titleElement = section.selectFirst("h2.section-title, div.section-title")
+                val title = titleElement?.text()?.trim() ?: "غير مصنف"
+                
+                val items = section.select("div.video-block").mapNotNull { 
+                    it.toSearchResponseFromVideoBlock()
                 }
                 
-                if (allItems.isNotEmpty()) {
-                    homePageList.add(HomePageList("أحدث المحتوى", allItems))
+                if (items.isNotEmpty()) {
+                    homePageList.add(HomePageList(title, items))
                 }
             }
-            
-            return HomePageResponse(homePageList)
         } else {
-            // للصفحات الأخرى (الأفلام، المسلسلات، إلخ)
-            val items = document.select("div.video-block").mapNotNull { 
+            // إذا لم نجد أقسامًا، نبحث عن المحتوى مباشرة
+            val allItems = document.select("div.video-block").mapNotNull { 
                 it.toSearchResponseFromVideoBlock() 
             }
-            val hasNext = document.selectFirst("a.next") != null
-            return newHomePageResponse(request.name, items, hasNext)
+            
+            if (allItems.isNotEmpty()) {
+                homePageList.add(HomePageList(request.name, allItems))
+            }
         }
+        
+        return HomePageResponse(homePageList)
     }
     
     // دالة خاصة لاستخراج المحتوى من عناصر video-block
@@ -111,7 +102,7 @@ class Asia2Tv : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/?s=${query.encodeToUrl()}"
+        val url = "$mainUrl/?s=${query.replace(" ", "+")}"
         val document = app.get(url, headers = getHeaders()).document
         
         // البحث في نتائج البحث
@@ -201,4 +192,28 @@ class Asia2Tv : MainAPI() {
             "Referer" to referer,
             "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language" to "ar,
+            "Accept-Language" to "ar,en-US;q=0.7,en;q=0.3",
+            "Accept-Encoding" to "gzip, deflate",
+            "Connection" to "keep-alive",
+            "Upgrade-Insecure-Requests" to "1"
+        )
+    }
+    
+    private fun extractEpisodeNumber(title: String): Int? {
+        val patterns = listOf(
+            Regex("الحلقة\\s+(\\d+)"),
+            Regex("Episode\\s+(\\d+)"),
+            Regex("E(\\d+)"),
+            Regex("(\\d+)")
+        )
+        
+        for (pattern in patterns) {
+            val match = pattern.find(title)
+            if (match != null) {
+                return match.groupValues[1].toIntOrNull()
+            }
+        }
+        
+        return null
+    }
+}
