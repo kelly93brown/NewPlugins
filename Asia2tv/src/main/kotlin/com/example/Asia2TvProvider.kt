@@ -110,12 +110,13 @@ class Asia2Tv : MainAPI() {
                 }
             }
             
+            // إنشاء استجابة المسلسل بدون خاصية status غير الموجودة
             newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
                 this.posterUrl = poster
                 this.plot = description
                 this.year = year
                 this.tags = tags
-                this.status = if (isCompleted) ShowStatus.Completed else ShowStatus.Ongoing
+                // تمت إزالة سطر this.status = ... لأنه يسبب خطأ
             }
         }
     }
@@ -139,7 +140,8 @@ class Asia2Tv : MainAPI() {
                     
                     if (serverUrl.isNotBlank()) {
                         val fullUrl = fixUrl(serverUrl)
-                        loadExtractor(fullUrl, data, subtitleCallback, callback, serverName)
+                        // استخدام التوقيع الصحيح لـ loadExtractor
+                        loadExtractor(fullUrl, data, subtitleCallback, callback)
                     }
                 }
             }.awaitAll()
