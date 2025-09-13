@@ -1,9 +1,12 @@
-version = 11
+
+version = 112
+
 
 cloudstream {
     language = "ar"
     description = "Asia2TV Kdrama Cdrama"
     authors = listOf("adamwolker21")
+
 
     status = 1 
     tvTypes = listOf(
@@ -12,5 +15,7 @@ cloudstream {
         "AsianDrama"
     )
 
+
     iconUrl = "https://asia2tv.com/frontend/default/assets/images/logo.png?ver=1.2"
 }
+
