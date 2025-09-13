@@ -31,36 +31,70 @@ class Asia2Tv : MainAPI() {
         
         val document = app.get(url, headers = getHeaders()).document
 
+        // نهج جديد لاستخراج المحتوى - أكثر مرونة مع الهيكل الحقيقي للموقع
         if (request.data == "/") {
             val homePageList = mutableListOf<HomePageList>()
-            document.select("div.section-title").forEach { section ->
-                val title = section.text().trim()
-                val container = section.nextElementSibling()?.selectFirst("div.video-block-container")
-                val items = container?.select("div.video-block")?.mapNotNull { it.toSearchResponse() } ?: emptyList()
+            
+            // البحث عن جميع الأقسام في الصفحة الرئيسية
+            val sections = document.select("div.section")
+            if (sections.isNotEmpty()) {
+                sections.forEach { section ->
+                    val titleElement = section.selectFirst("h2.section-title, div.section-title")
+                    val title = titleElement?.text()?.trim() ?: "غير مصنف"
+                    
+                    val items = section.select("div.video-block, article.post, div.postmovie").mapNotNull { 
+                        it.toSearchResponse() 
+                    }
+                    
+                    if (items.isNotEmpty()) {
+                        homePageList.add(HomePageList(title, items))
+                    }
+                }
+            } else {
+                // إذا لم نجد أقسامًا بالطريقة الأولى، نبحث عن أي محتوى مباشرة
+                val items = document.select("div.video-block, article.post, div.postmovie").mapNotNull { 
+                    it.toSearchResponse() 
+                }
                 if (items.isNotEmpty()) {
-                    homePageList.add(HomePageList(title, items))
+                    homePageList.add(HomePageList("أحدث المحتوى", items))
                 }
             }
+            
             return HomePageResponse(homePageList)
         } else {
-            val items = document.select("div.video-block").mapNotNull { it.toSearchResponse() }
-            val hasNext = document.selectFirst("a.next") != null
+            // للصفحات الأخرى (الأفلام، المسلسلات، إلخ)
+            val items = document.select("div.video-block, article.post, div.postmovie").mapNotNull { 
+                it.toSearchResponse() 
+            }
+            val hasNext = document.selectFirst("a.next, a.page-link:contains(التالي)") != null
             return newHomePageResponse(request.name, items, hasNext)
         }
     }
     
     private fun Element.toSearchResponse(): SearchResponse? {
-        val link = this.selectFirst("a")?.attr("href")?.let { fixUrl(it) } ?: return null
-        val title = this.selectFirst("div.video-details h2")?.text()?.trim() ?: return null
-        val poster = this.selectFirst("img")?.attr("src") ?: ""
-        val type = if (link.contains("/movie/")) TvType.Movie else TvType.TvSeries
-
-        return if (type == TvType.Movie) {
-            newMovieSearchResponse(title, link) {
+        // محاولة استخراج الرابط بطرق متعددة
+        val linkElement = this.selectFirst("a")
+        val href = linkElement?.attr("href")?.let { fixUrl(it) } ?: return null
+        
+        // محاولة استخراج العنوان بطرق متعددة
+        val title = this.selectFirst("h2, h3, h4, div.video-details h2, div.title")?.text()?.trim() 
+                  ?: linkElement.attr("title") 
+                  ?: return null
+        
+        // محاولة استخراج الصورة بطرق متعددة
+        val poster = this.selectFirst("img")?.let { 
+            it.attr("src") ?: it.attr("data-src") 
+        } ?: ""
+        
+        // تحديد نوع المحتوى بناءً على الرابط أو العناصر الأخرى
+        val isMovie = href.contains("/movie/") || this.selectFirst("span:contains(فيلم), i.fa-film") != null
+        
+        return if (isMovie) {
+            newMovieSearchResponse(title, href) {
                 this.posterUrl = poster
             }
         } else {
-            newTvSeriesSearchResponse(title, link) {
+            newTvSeriesSearchResponse(title, href) {
                 this.posterUrl = poster
             }
         }
@@ -69,25 +103,27 @@ class Asia2Tv : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=${query.encodeToUrl()}"
         val document = app.get(url, headers = getHeaders()).document
-        return document.select("div.video-block").mapNotNull { it.toSearchResponse() }
+        
+        // استخدام نهج متعدد للبحث عن النتائج
+        return document.select("div.video-block, article.post, div.postmovie, div.search-result").mapNotNull { 
+            it.toSearchResponse() 
+        }
     }
 
     override suspend fun load(url: String): LoadResponse? {
         val document = app.get(url, headers = getHeaders(url)).document
         
-        // Extract basic information
-        val title = document.selectFirst("div.video-details h1")?.text()?.trim() ?: return null
-        val poster = document.selectFirst("div.video-img img")?.attr("src") ?: ""
-        val description = document.selectFirst("div.video-desc p")?.text()?.trim() ?: ""
+        // استخراج المعلومات الأساسية بطرق متعددة
+        val title = document.selectFirst("h1, h1.name, div.video-details h1")?.text()?.trim() ?: return null
+        val poster = document.selectFirst("img.poster, div.poster img, div.video-img img")?.attr("src") ?: ""
+        val description = document.selectFirst("div.story, div.video-desc, div.description")?.text()?.trim() ?: ""
         
-        // Extract additional metadata
-        val year = document.select("div.video-details p:contains(سنة)").firstOrNull()?.text()?.replace("سنة الإنتاج:", "")?.trim()?.toIntOrNull()
-        val tags = document.select("div.video-details p:contains(النوع) a").map { it.text().trim() }
-        val statusText = document.selectFirst("span.status")?.text()?.trim() ?: ""
-        val isCompleted = statusText.contains("مكتمل") || statusText.contains("مكتملة")
-
-        // Determine content type
-        val isMovie = url.contains("/movie/") || document.selectFirst("div.video-details p:contains(نوع) a:contains(فيلم)") != null
+        // استخراج المعلومات الإضافية
+        val year = extractYear(document)
+        val tags = document.select("a[href*=genre], a[href*=type], span.genre a").map { it.text().trim() }
+        
+        // تحديد نوع المحتوى
+        val isMovie = url.contains("/movie/") || document.selectFirst(":contains(فيلم), :contains(فيلم)") != null
         
         return if (isMovie) {
             newMovieLoadResponse(title, url, TvType.Movie, url) {
@@ -97,8 +133,8 @@ class Asia2Tv : MainAPI() {
                 this.tags = tags
             }
         } else {
-            // Extract episodes
-            val episodes = document.select("div.video-episodes a").mapNotNull { episodeElement ->
+            // استخراج الحلقات بطرق متعددة
+            val episodes = document.select("div.episode-list a, div.video-episodes a, a[href*=/episode/], a.episode").mapNotNull { episodeElement ->
                 val episodeUrl = fixUrl(episodeElement.attr("href"))
                 val episodeTitle = episodeElement.text().trim()
                 val episodeNumber = extractEpisodeNumber(episodeTitle)
@@ -106,17 +142,15 @@ class Asia2Tv : MainAPI() {
                 newEpisode(episodeUrl) {
                     this.name = episodeTitle
                     this.episode = episodeNumber
-                    this.season = 1 // Default season, can be improved
+                    this.season = 1
                 }
             }
             
-            // إنشاء استجابة المسلسل بدون خاصية status غير الموجودة
             newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
                 this.posterUrl = poster
                 this.plot = description
                 this.year = year
                 this.tags = tags
-                // تمت إزالة سطر this.status = ... لأنه يسبب خطأ
             }
         }
     }
@@ -129,18 +163,19 @@ class Asia2Tv : MainAPI() {
     ): Boolean {
         val document = app.get(data, headers = getHeaders(data)).document
         
-        // Extract server links from the video server buttons
-        val serverElements = document.select("div.video-server button")
+        // استخراج روابط الخوادم بطرق متعددة
+        val serverElements = document.select("div.video-server button, div.server-item, button.server-btn")
         
         coroutineScope {
             serverElements.map { serverButton ->
                 async {
                     val serverName = serverButton.text().trim()
-                    val serverUrl = serverButton.attr("data-url")
+                    val serverUrl = serverButton.attr("data-url").takeIf { it.isNotBlank() } 
+                                  ?: serverButton.attr("data-src")
+                                  ?: serverButton.attr("data-link")
                     
-                    if (serverUrl.isNotBlank()) {
+                    if (!serverUrl.isNullOrBlank()) {
                         val fullUrl = fixUrl(serverUrl)
-                        // استخدام التوقيع الصحيح لـ loadExtractor
                         loadExtractor(fullUrl, data, subtitleCallback, callback)
                     }
                 }
@@ -162,10 +197,17 @@ class Asia2Tv : MainAPI() {
         )
     }
     
+    private fun extractYear(document: org.jsoup.nodes.Document): Int? {
+        val yearText = document.selectFirst(":contains(سنة), :contains(عام), :contains(year)")?.text()
+        return yearText?.let { 
+            Regex("(\\d{4})").find(it)?.groupValues?.get(1)?.toIntOrNull() 
+        }
+    }
+    
     private fun extractEpisodeNumber(title: String): Int? {
         val patterns = listOf(
-            Regex("الحلقة\\s+(\\d+)"),
-            Regex("Episode\\s+(\\d+)"),
+            Regex("الحلقة\\s*(\\d+)"),
+            Regex("Episode\\s*(\\d+)"),
             Regex("E(\\d+)"),
             Regex("(\\d+)")
         )
