@@ -1,8 +1,10 @@
+
 {
     "name": "My Providers",
     "description": "Arabic Providers",
     "manifestVersion": 1,
     "pluginLists": [
-        "https://raw.githubusercontent.com/adamwolker21/TestPlugins/builds/plugins.json"
+        "https://raw.githubusercontent.com/kelly93brown/NewPlugins/refs/heads/builds/plugins.json"
     ]
 }
+
