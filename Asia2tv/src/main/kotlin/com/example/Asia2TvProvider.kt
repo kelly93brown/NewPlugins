@@ -31,66 +31,71 @@ class Asia2Tv : MainAPI() {
         
         val document = app.get(url, headers = getHeaders()).document
 
-        // نهج مختلف لاستخراج المحتوى من الصفحة الرئيسية
+        // استخدام المحددات الصحيحة بناءً على HTML الفعلي
         val homePageList = mutableListOf<HomePageList>()
         
-        // البحث عن جميع الأقسام في الصفحة
-        val sections = document.select("div.section")
-        
-        if (sections.isNotEmpty()) {
-            sections.forEach { section ->
-                val titleElement = section.selectFirst("h2.section-title, div.section-title")
-                val title = titleElement?.text()?.trim() ?: "غير مصنف"
-                
-                val items = section.select("div.video-block").mapNotNull { 
-                    it.toSearchResponseFromVideoBlock()
+        if (request.data == "/") {
+            // للصفحة الرئيسية، نحاول استخراج الأقسام
+            val sections = document.select("div.section, div.mov-cat-d")
+            
+            if (sections.isNotEmpty()) {
+                sections.forEach { section ->
+                    val title = section.selectFirst("h2, h3, div.section-title")?.text()?.trim() ?: "غير مصنف"
+                    val items = section.select("div.postmovie, article.post, div.video-block").mapNotNull { 
+                        it.toSearchResponse()
+                    }
+                    
+                    if (items.isNotEmpty()) {
+                        homePageList.add(HomePageList(title, items))
+                    }
+                }
+            } else {
+                // إذا لم نجد أقسامًا، نأخذ كل المحتوى
+                val allItems = document.select("div.postmovie, article.post, div.video-block").mapNotNull { 
+                    it.toSearchResponse() 
                 }
                 
-                if (items.isNotEmpty()) {
-                    homePageList.add(HomePageList(title, items))
+                if (allItems.isNotEmpty()) {
+                    homePageList.add(HomePageList("أحدث المحتوى", allItems))
                 }
             }
         } else {
-            // إذا لم نجد أقسامًا، نبحث عن المحتوى مباشرة
-            val allItems = document.select("div.video-block").mapNotNull { 
-                it.toSearchResponseFromVideoBlock() 
+            // للصفحات الأخرى
+            val items = document.select("div.postmovie, article.post, div.video-block").mapNotNull { 
+                it.toSearchResponse() 
             }
             
-            if (allItems.isNotEmpty()) {
-                homePageList.add(HomePageList(request.name, allItems))
+            if (items.isNotEmpty()) {
+                homePageList.add(HomePageList(request.name, items))
             }
         }
         
-        return HomePageResponse(homePageList)
+        val hasNext = document.selectFirst("a.next, a.page-link:contains(التالي)") != null
+        return newHomePageResponse(request.name, homePageList, hasNext)
     }
     
-    // دالة خاصة لاستخراج المحتوى من عناصر video-block
-    private fun Element.toSearchResponseFromVideoBlock(): SearchResponse? {
-        val link = this.selectFirst("a")?.attr("href")?.let { fixUrl(it) } ?: return null
-        val title = this.selectFirst("div.video-details h2")?.text()?.trim() ?: return null
-        val poster = this.selectFirst("img")?.attr("src") ?: ""
-        val type = if (link.contains("/movie/")) TvType.Movie else TvType.TvSeries
-
-        return if (type == TvType.Movie) {
-            newMovieSearchResponse(title, link) {
-                this.posterUrl = poster
-            }
-        } else {
-            newTvSeriesSearchResponse(title, link) {
-                this.posterUrl = poster
-            }
-        }
-    }
-    
-    // دالة للعناصر الأخرى (للبحث)
     private fun Element.toSearchResponse(): SearchResponse? {
-        val linkElement = this.selectFirst("h3 a, h4 a, h2 a")
-        val href = linkElement?.attr("href")?.let { fixUrl(it) } ?: return null
-        val title = linkElement.text().trim()
-        val poster = this.selectFirst("img")?.attr("src") ?: this.selectFirst("img")?.attr("data-src") ?: ""
-        val type = if (href.contains("/movie/")) TvType.Movie else TvType.TvSeries
-
-        return if (type == TvType.Movie) {
+        // استخراج الرابط من عناصر مختلفة محتملة
+        val linkElement = this.selectFirst("h3 a, h4 a, h2 a, a.thumbnail")
+        val href = linkElement?.attr("href")?.let { fixUrl(it) } 
+                  ?: this.selectFirst("a")?.attr("href")?.let { fixUrl(it) } 
+                  ?: return null
+        
+        // استخراج العنوان من عناصر مختلفة محتملة
+        val title = linkElement?.text()?.trim() 
+                  ?: this.selectFirst("h2, h3, h4, div.title")?.text()?.trim()
+                  ?: this.attr("title")
+                  ?: return null
+        
+        // استخراج الصورة من عناصر مختلفة محتملة
+        val poster = this.selectFirst("img")?.let { 
+            it.attr("src") ?: it.attr("data-src") 
+        } ?: ""
+        
+        // تحديد نوع المحتوى
+        val isMovie = href.contains("/movie/") || title.contains("فيلم")
+        
+        return if (isMovie) {
             newMovieSearchResponse(title, href) {
                 this.posterUrl = poster
             }
@@ -105,8 +110,7 @@ class Asia2Tv : MainAPI() {
         val url = "$mainUrl/?s=${query.replace(" ", "+")}"
         val document = app.get(url, headers = getHeaders()).document
         
-        // البحث في نتائج البحث
-        return document.select("article.post, div.postmovie, div.search-result").mapNotNull { 
+        return document.select("div.postmovie, article.post, div.search-result").mapNotNull { 
             it.toSearchResponse() 
         }
     }
@@ -115,16 +119,16 @@ class Asia2Tv : MainAPI() {
         val document = app.get(url, headers = getHeaders(url)).document
         
         // استخراج المعلومات الأساسية
-        val title = document.selectFirst("h1.name, div.video-details h1")?.text()?.trim() ?: return null
-        val poster = document.selectFirst("div.poster img, div.video-img img")?.attr("src") ?: ""
-        val description = document.selectFirst("div.story, div.video-desc p")?.text()?.trim() ?: ""
+        val title = document.selectFirst("h1, h1.name, div.video-details h1")?.text()?.trim() ?: return null
+        val poster = document.selectFirst("div.poster img, div.video-img img, img.wp-post-image")?.attr("src") ?: ""
+        val description = document.selectFirst("div.story, div.video-desc, div.description")?.text()?.trim() ?: ""
         
         // استخراج المعلومات الإضافية
         val year = document.select("div.extra-info:contains(سنة), p:contains(سنة)").firstOrNull()?.text()?.let {
             Regex("(\\d{4})").find(it)?.groupValues?.get(1)?.toIntOrNull()
         }
         
-        val tags = document.select("div.extra-info:contains(النوع) a, p:contains(النوع) a").map { it.text().trim() }
+        val tags = document.select("div.extra-info:contains(النوع) a, p:contains(النوع) a, a[href*=genre]").map { it.text().trim() }
         
         // تحديد نوع المحتوى
         val isMovie = url.contains("/movie/") || document.selectFirst(":contains(فيلم)") != null
@@ -138,7 +142,7 @@ class Asia2Tv : MainAPI() {
             }
         } else {
             // استخراج الحلقات
-            val episodes = document.select("div#DivEpisodes a, div.video-episodes a").mapNotNull { episodeElement ->
+            val episodes = document.select("div#DivEpisodes a, div.video-episodes a, a[href*=/episode/]").mapNotNull { episodeElement ->
                 val episodeUrl = fixUrl(episodeElement.attr("href"))
                 val episodeTitle = episodeElement.text().trim()
                 val episodeNumber = extractEpisodeNumber(episodeTitle)
@@ -168,7 +172,7 @@ class Asia2Tv : MainAPI() {
         val document = app.get(data, headers = getHeaders(data)).document
         
         // استخراج روابط الخوادم
-        val serverElements = document.select("div.video-server button")
+        val serverElements = document.select("div.video-server button, div.server-item button, button[data-url]")
         
         coroutineScope {
             serverElements.map { serverButton ->
